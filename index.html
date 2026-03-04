@@ -89,6 +89,13 @@
     .c-hrs{width:84px;text-align:center}
     .sortable{cursor:pointer;user-select:none;white-space:nowrap}
     .sortable:hover{background:#eef2ff}
+    .toggle-wrap{display:flex;align-items:center;gap:10px;cursor:pointer}
+    .toggle-wrap input{display:none}
+    .toggle-track{width:36px;height:20px;background:#e2e8f0;border-radius:10px;position:relative;transition:background .2s}
+    .toggle-wrap input:checked+.toggle-track{background:#3b82f6}
+    .toggle-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+    .toggle-wrap input:checked+.toggle-track .toggle-knob{transform:translateX(16px)}
+    .toggle-label{font-size:13px;color:#475569;font-weight:500}
 
     .empty{display:flex;align-items:center;justify-content:center;padding:60px 20px;color:#94a3b8;font-size:14px;flex:1}
 
@@ -207,8 +214,10 @@
         </div>
       </div>
       <div style="margin-top:12px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#475569;cursor:pointer">
-          <input type="checkbox" id="groupByTeacher" onchange="toggleGroupByTeacher()"> 강사별 보기
+        <label class="toggle-wrap">
+          <input type="checkbox" id="groupByTeacher" onchange="toggleGroupByTeacher()">
+          <div class="toggle-track"><div class="toggle-knob"></div></div>
+          <span class="toggle-label">강사별 보기</span>
         </label>
       </div>
     </div>
