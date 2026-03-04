@@ -307,6 +307,7 @@
   }
 
   async function refreshSchedule() {
+    if (isBangkwahu()) return;
     localStorage.removeItem('schedule_cache');
     setScheduleBox('loading', '\uC0C8\uB85C\uACE0\uCE68 \uC911...', '');
     try {
@@ -441,7 +442,7 @@
       document.querySelectorAll('#bangSection .day-btn').forEach(function(b) { b.classList.add('active'); });
     }
     renderTableHead();
-    if ((is1 || isBang) && SCHEDULE_URL) {
+    if (is1 && SCHEDULE_URL) {
       setScheduleBox('loading', '\uBD88\uB7EC\uC624\uB294 \uC911...', '');
       const schedulePromise = fetchScheduleData().catch(function() { return null; });
       await loadCourses();
@@ -465,9 +466,12 @@
         setScheduleBox('err', '\uC77C\uC815 \uB85C\uB4DC \uC2E4\uD328', '\uB124\uD2B8\uC6CC\uD06C \uC624\uB958');
         scheduleLoaded = false;
       }
+    } else if (isBang) {
+      await loadCourses();
+      setScheduleBox('', '\uC11C\uBA85\uB85D \uBBF8\uC5F0\uACB0', '\uCD9C\uACB0 \uD30C\uC77C\uC5D0\uC11C \uB0A0\uC9DC \uAC10\uC9C0');
     } else {
       await loadCourses();
-      if (is1 || isBang) await fetchSchedule();
+      if (is1) await fetchSchedule();
     }
   }
 
