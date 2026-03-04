@@ -341,9 +341,12 @@
     const pat = /^(.+)\(([^)]+)\)-(.+)$/;
     attended = new Set();
     json.forEach(row => {
-      const v = String(row['\uAC15\uC88C(\uB2F4\uB2F9\uAD50\uC0AC)-\uC7A5\uC18C'] || '').trim();
-      const m = v.match(pat);
-      if (m) attended.add(normalize(m[1]) + '||' + normalize(m[2]));
+      const vals = Object.values(row);
+      for (let i = 0; i < vals.length; i++) {
+        const v = String(vals[i] || '').trim();
+        const m = v.match(pat);
+        if (m) { attended.add(normalize(m[1]) + '||' + normalize(m[2])); break; }
+      }
     });
     runComparison();
     input.value = '';
