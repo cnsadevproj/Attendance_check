@@ -87,6 +87,8 @@
     .c-name{text-align:left!important}
     .c-miss{min-width:120px;text-align:left!important}
     .c-hrs{width:60px;text-align:center}
+    .sortable{cursor:pointer;user-select:none}
+    .sortable:hover{background:#eef2ff}
 
     .empty{display:flex;align-items:center;justify-content:center;padding:60px 20px;color:#94a3b8;font-size:14px;flex:1}
 
@@ -193,6 +195,23 @@
         </div>
       </div>
     </div>
+    <div id="bangSection" style="display:none">
+      <div>
+        <div class="sb-label">요일 필터</div>
+        <div class="day-bar">
+          <button class="day-btn active" onclick="selectDayBang(this,'\uC6D4')">월</button>
+          <button class="day-btn active" onclick="selectDayBang(this,'\uD654')">화</button>
+          <button class="day-btn active" onclick="selectDayBang(this,'\uC218')">수</button>
+          <button class="day-btn active" onclick="selectDayBang(this,'\uBAA9')">목</button>
+          <button class="day-btn active" onclick="selectDayBang(this,'\uAE08')">금</button>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#475569;cursor:pointer">
+          <input type="checkbox" id="groupByTeacher" onchange="toggleGroupByTeacher()"> 강사별 보기
+        </label>
+      </div>
+    </div>
   </aside>
 
   <main class="main">
@@ -248,6 +267,10 @@
   let scheduleDates = [];
   let scheduleLoaded = false;
   let attendDateRange = null;
+  let selectedDaysBang = ['\uC6D4','\uD654','\uC218','\uBAA9','\uAE08'];
+  let groupByTeacher = false;
+  let resultsBang = [];
+  let sortState = { col: null, dir: 'asc' };
 
   function normalize(s) {
     return s.normalize('NFKC').replace(/[\s\u00a0\u3000]+/g, ' ').trim();
@@ -261,6 +284,10 @@
     return document.getElementById('category').value.includes('1\uC7781\uAE30');
   }
 
+  function isBangkwahu() {
+    return document.getElementById('category').value.includes('\uBC29\uACFC\uD6C4');
+  }
+
   async function fetchFromSupabase(category) {
     const url = SUPABASE_URL + '/rest/v1/courses?category=eq.' + encodeURIComponent(category) + '&select=id,name,teacher,grade,location,days&order=id';
     const res = await fetch(url, {
@@ -268,7 +295,7 @@
     });
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
-    return data.map((row, i) => ({ ...row, seq_no: i + 1 }));
+    return data.map((row, i) => ({ ...row, seq_no: i + 1, times: row.times || [] }));
   }
 
   async function fetchScheduleData(force) {
@@ -406,21 +433,30 @@
     scheduleLoaded = false;
     attendFilename = '';
     attendDateRange = null;
+    sortState = { col: null, dir: 'asc' };
     const is1 = is1in1gi();
-    document.getElementById('daySection').style.display = is1 ? 'none' : '';
+    const isBang = isBangkwahu();
+    document.getElementById('daySection').style.display = (is1 || isBang) ? 'none' : '';
     document.getElementById('scheduleSection').style.display = is1 ? '' : 'none';
     document.getElementById('modeSection').style.display = is1 ? '' : 'none';
+    document.getElementById('bangSection').style.display = isBang ? '' : 'none';
+    if (isBang) {
+      selectedDaysBang = ['\uC6D4','\uD654','\uC218','\uBAA9','\uAE08'];
+      groupByTeacher = false;
+      document.querySelectorAll('#bangSection .day-btn').forEach(function(b) { b.classList.add('active'); });
+      document.getElementById('groupByTeacher').checked = false;
+    }
     renderTableHead();
     if (is1 && SCHEDULE_URL) {
       setScheduleBox('loading', '\uBD88\uB7EC\uC624\uB294 \uC911...', '');
-      const schedulePromise = fetchScheduleData().catch(() => null);
+      const schedulePromise = fetchScheduleData().catch(function() { return null; });
       await loadCourses();
       const data = await schedulePromise;
       if (data) {
         scheduleByDate = {};
         const courseByUid = {};
-        courses.forEach(c => { courseByUid[c.seq_no] = c; });
-        data.schedule.forEach(s => {
+        courses.forEach(function(c) { courseByUid[c.seq_no] = c; });
+        data.schedule.forEach(function(s) {
           const course = courseByUid[s.uid];
           if (!course) return;
           const key = normalize(course.name) + '||' + normalize(course.teacher);
@@ -443,7 +479,7 @@
 
   function selectDay(btn, day) {
     selectedDay = day;
-    document.querySelectorAll('#daySection .day-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#daySection .day-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
     if (attended) runComparison();
   }
@@ -461,25 +497,195 @@
     if (classDates.length > 0 && Object.keys(attendedByDate).length > 0) runComparison();
   }
 
+  function selectDayBang(btn, day) {
+    const idx = selectedDaysBang.indexOf(day);
+    if (idx >= 0) {
+      if (selectedDaysBang.length === 1) return;
+      selectedDaysBang.splice(idx, 1);
+      btn.classList.remove('active');
+    } else {
+      selectedDaysBang.push(day);
+      btn.classList.add('active');
+    }
+    if (classDates.length > 0 && Object.keys(attendedByDate).length > 0) runComparison();
+  }
+
+  function toggleGroupByTeacher() {
+    groupByTeacher = document.getElementById('groupByTeacher').checked;
+    sortState = { col: null, dir: 'asc' };
+    if (classDates.length > 0 && Object.keys(attendedByDate).length > 0) {
+      runComparison();
+    } else {
+      renderTableHead();
+    }
+  }
+
   function toggleQueryMode(mode) {
     if (queryMode === mode) return;
     queryMode = mode;
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
     document.querySelector('.mode-btn[data-mode="' + mode + '"]').classList.add('active');
     renderTableHead();
     if (classDates.length > 0 && Object.keys(attendedByDate).length > 0) runComparison();
   }
 
+  function sortableTh(label, col, cls) {
+    var arrow = sortState.col === col ? (sortState.dir === 'asc' ? ' \u25B2' : ' \u25BC') : '';
+    var c = cls ? cls + ' sortable' : 'sortable';
+    return '<th class="' + c + '" onclick="sortResults(\'' + col + '\')">' + label + arrow + '</th>';
+  }
+
   function renderTableHead() {
-    const head = document.getElementById('resultHead');
-    if (is1in1gi()) {
-      if (queryMode === 'missing') {
-        head.innerHTML = '<th class="c-no">\uC21C\uBC88</th><th class="c-uid">\uACE0\uC720\uBC88\uD638</th><th class="c-name">\uAC15\uC88C\uBA85</th><th class="c-tc">\uC9C0\uB3C4\uAD50\uC0AC</th><th class="c-loc">\uC7A5\uC18C</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>';
+    var head = document.getElementById('resultHead');
+    if (isBangkwahu()) {
+      if (groupByTeacher) {
+        head.innerHTML = '<th class="c-no">\uC21C\uBC88</th><th class="c-tc">\uC9C0\uB3C4\uAD50\uC0AC</th><th class="c-name">\uAC15\uC88C\uBA85</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>';
       } else {
-        head.innerHTML = '<th class="c-no">\uC21C\uBC88</th><th class="c-uid">\uACE0\uC720\uBC88\uD638</th><th class="c-name">\uAC15\uC88C\uBA85</th><th class="c-tc">\uC9C0\uB3C4\uAD50\uC0AC</th><th class="c-loc">\uC7A5\uC18C</th><th class="c-hrs">\uC2DC\uC218</th>';
+        head.innerHTML = sortableTh('\uC21C\uBC88','seq','c-no') + sortableTh('\uACE0\uC720\uBC88\uD638','uid','c-uid') + '<th class="c-name">\uAC15\uC88C\uBA85</th>' + sortableTh('\uC9C0\uB3C4\uAD50\uC0AC','teacher','c-tc') + '<th class="c-loc">\uC7A5\uC18C</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>' + sortableTh('\uBBF8\uC785\uB825 \uC218','missCount','c-hrs');
+      }
+    } else if (is1in1gi()) {
+      if (queryMode === 'missing') {
+        head.innerHTML = sortableTh('\uC21C\uBC88','seq','c-no') + sortableTh('\uACE0\uC720\uBC88\uD638','uid','c-uid') + '<th class="c-name">\uAC15\uC88C\uBA85</th>' + sortableTh('\uC9C0\uB3C4\uAD50\uC0AC','teacher','c-tc') + '<th class="c-loc">\uC7A5\uC18C</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>';
+      } else {
+        head.innerHTML = sortableTh('\uC21C\uBC88','seq','c-no') + sortableTh('\uACE0\uC720\uBC88\uD638','uid','c-uid') + '<th class="c-name">\uAC15\uC88C\uBA85</th>' + sortableTh('\uC9C0\uB3C4\uAD50\uC0AC','teacher','c-tc') + '<th class="c-loc">\uC7A5\uC18C</th><th class="c-hrs">\uC2DC\uC218</th>';
       }
     } else {
-      head.innerHTML = '<th class="c-no">\uC21C\uBC88</th><th class="c-gr">\uD559\uB144</th><th class="c-name">\uAC15\uC88C\uBA85</th><th class="c-tc">\uC9C0\uB3C4\uAD50\uC0AC</th><th class="c-loc">\uC7A5\uC18C</th>';
+      head.innerHTML = sortableTh('\uC21C\uBC88','seq','c-no') + sortableTh('\uD559\uB144','grade','c-gr') + '<th class="c-name">\uAC15\uC88C\uBA85</th>' + sortableTh('\uC9C0\uB3C4\uAD50\uC0AC','teacher','c-tc') + '<th class="c-loc">\uC7A5\uC18C</th>';
+    }
+  }
+
+  function sortResults(col) {
+    if (sortState.col === col) {
+      sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortState.col = col;
+      sortState.dir = 'asc';
+    }
+    var dir = sortState.dir === 'asc' ? 1 : -1;
+    var arr;
+    if (isBangkwahu()) arr = resultsBang;
+    else if (is1in1gi()) arr = results1in1gi;
+    else arr = results;
+
+    arr.sort(function(a, b) {
+      var ca = a.course || a;
+      var cb = b.course || b;
+      var va, vb;
+      switch (col) {
+        case 'seq': va = ca.seq_no || 0; vb = cb.seq_no || 0; break;
+        case 'uid': va = ca.seq_no || 0; vb = cb.seq_no || 0; break;
+        case 'grade': va = ca.grade || ''; vb = cb.grade || ''; break;
+        case 'teacher': va = ca.teacher || ''; vb = cb.teacher || ''; break;
+        case 'missCount': va = a.missingCount || 0; vb = b.missingCount || 0; break;
+        default: va = 0; vb = 0;
+      }
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb), 'ko') * dir;
+    });
+    renderTableHead();
+    renderTableBody();
+  }
+
+  function renderTableBody() {
+    var tbody = document.getElementById('resultBody');
+    var table = document.getElementById('resultTable');
+    var empty = document.getElementById('emptyMsg');
+    tbody.innerHTML = '';
+    if (isBangkwahu()) {
+      renderBodyBang(tbody, table, empty);
+    } else if (is1in1gi()) {
+      renderBody1in1gi(tbody, table, empty);
+    } else {
+      renderBodyRegular(tbody, table, empty);
+    }
+  }
+
+  function renderBodyRegular(tbody, table, empty) {
+    if (results.length > 0) {
+      table.style.display = '';
+      empty.style.display = 'none';
+      results.forEach(function(c, i) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-gr">' + c.grade + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td>';
+        tbody.appendChild(tr);
+      });
+    } else {
+      table.style.display = 'none';
+      empty.style.display = '';
+      empty.textContent = '\uBBF8\uC785\uB825 \uAC15\uC88C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4';
+    }
+  }
+
+  function renderBody1in1gi(tbody, table, empty) {
+    if (results1in1gi.length > 0) {
+      table.style.display = '';
+      empty.style.display = 'none';
+      results1in1gi.forEach(function(item, i) {
+        var c = item.course;
+        var tr = document.createElement('tr');
+        if (queryMode === 'missing') {
+          var dates = item.missingDates.map(function(d) {
+            var p = d.split('-');
+            return parseInt(p[1]) + '/' + parseInt(p[2]);
+          }).join(', ');
+          tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-uid">' + c.seq_no + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td><td class="c-miss">' + dates + '</td>';
+        } else {
+          tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-uid">' + c.seq_no + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td><td class="c-hrs">' + item.hours + '</td>';
+        }
+        tbody.appendChild(tr);
+      });
+    } else {
+      table.style.display = 'none';
+      empty.style.display = '';
+      empty.textContent = queryMode === 'missing' ? '\uBBF8\uC785\uB825 \uAC15\uC88C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4' : '\uCD9C\uACB0 \uC785\uB825\uB41C \uAC15\uC88C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4';
+    }
+  }
+
+  function formatBangDates(missingDates) {
+    return missingDates.map(function(md) {
+      var p = md.date.split('-');
+      var d = parseInt(p[1]) + '/' + parseInt(p[2]);
+      return md.period ? d + ' ' + md.day + md.period : d;
+    }).join(', ');
+  }
+
+  function renderBodyBang(tbody, table, empty) {
+    if (resultsBang.length === 0) {
+      table.style.display = 'none';
+      empty.style.display = '';
+      empty.textContent = '\uBBF8\uC785\uB825 \uAC15\uC88C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4';
+      return;
+    }
+    table.style.display = '';
+    empty.style.display = 'none';
+    if (groupByTeacher) {
+      var teacherMap = {};
+      resultsBang.forEach(function(item) {
+        var t = item.course.teacher;
+        if (!teacherMap[t]) teacherMap[t] = [];
+        teacherMap[t].push(item);
+      });
+      var teachers = Object.keys(teacherMap).sort(function(a, b) { return a.localeCompare(b, 'ko'); });
+      var seq = 1;
+      teachers.forEach(function(teacher) {
+        var items = teacherMap[teacher];
+        items.forEach(function(item, idx) {
+          var c = item.course;
+          var dates = formatBangDates(item.missingDates);
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td class="c-no">' + (idx === 0 ? seq : '') + '</td><td class="c-tc">' + (idx === 0 ? teacher : '') + '</td><td class="c-name">' + c.name + '</td><td class="c-miss">' + dates + '</td>';
+          tbody.appendChild(tr);
+        });
+        seq++;
+      });
+    } else {
+      resultsBang.forEach(function(item, i) {
+        var c = item.course;
+        var dates = formatBangDates(item.missingDates);
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-uid">' + c.seq_no + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td><td class="c-miss">' + dates + '</td><td class="c-hrs">' + item.missingCount + '</td>';
+        tbody.appendChild(tr);
+      });
     }
   }
 
@@ -492,26 +698,27 @@
     document.getElementById('attendBar').style.display = 'none';
     results = [];
     results1in1gi = [];
+    resultsBang = [];
   }
 
   function readFile(file) {
-    return new Promise(resolve => {
-      const r = new FileReader();
-      r.onload = e => resolve(new Uint8Array(e.target.result));
+    return new Promise(function(resolve) {
+      var r = new FileReader();
+      r.onload = function(e) { resolve(new Uint8Array(e.target.result)); };
       r.readAsArrayBuffer(file);
     });
   }
 
   function parseSheet(data) {
-    const wb = XLSX.read(data, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    let json = XLSX.utils.sheet_to_json(ws);
+    var wb = XLSX.read(data, { type: 'array' });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var json = XLSX.utils.sheet_to_json(ws);
     if (json.length > 0 && !json[0]['\uAC15\uC88C\uBA85'] && !json[0]['\uC9C0\uB3C4\uAD50\uC0AC']) {
       json = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      const h = json[0];
-      json = json.slice(1).map(row => {
-        const o = {};
-        h.forEach((k, i) => o[k] = row[i]);
+      var h = json[0];
+      json = json.slice(1).map(function(row) {
+        var o = {};
+        h.forEach(function(k, i) { o[k] = row[i]; });
         return o;
       });
     }
@@ -519,23 +726,26 @@
   }
 
   async function handleCourseFile(input) {
-    const file = input.files[0];
+    var file = input.files[0];
     if (!file) return;
-    const data = await readFile(file);
-    const json = parseSheet(data);
-    courses = json.map(row => ({
-      name: String(row['\uAC15\uC88C\uBA85'] || '').trim(),
-      teacher: String(row['\uC9C0\uB3C4\uAD50\uC0AC'] || '').trim(),
-      grade: String(row['\uD559\uB144'] || '').trim(),
-      location: String(row['\uC7A5\uC18C'] || '').trim(),
-      days: [...new Set((String(row['\uC2DC\uAC04'] || '').match(/[\uC6D4\uD654\uC218\uBAA9\uAE08]/g)) || [])].sort()
-    })).filter(c => c.name && c.teacher).map((c, i) => ({ ...c, seq_no: i + 1 }));
+    var data = await readFile(file);
+    var json = parseSheet(data);
+    courses = json.map(function(row) {
+      return {
+        name: String(row['\uAC15\uC88C\uBA85'] || '').trim(),
+        teacher: String(row['\uC9C0\uB3C4\uAD50\uC0AC'] || '').trim(),
+        grade: String(row['\uD559\uB144'] || '').trim(),
+        location: String(row['\uC7A5\uC18C'] || '').trim(),
+        days: ((String(row['\uC2DC\uAC04'] || '').match(/[\uC6D4\uD654\uC218\uBAA9\uAE08]/g)) || []).filter(function(v, i, a) { return a.indexOf(v) === i; }).sort(),
+        times: (String(row['\uC2DC\uAC04'] || '').match(/[\uC6D4\uD654\uC218\uBAA9\uAE08]\d+/g)) || []
+      };
+    }).filter(function(c) { return c.name && c.teacher; }).map(function(c, i) { return Object.assign({}, c, { seq_no: i + 1 }); });
     localStorage.setItem(storageKey(), JSON.stringify(courses));
     courseSource = 'local';
-    const box = document.getElementById('courseBox');
-    const icon = document.getElementById('courseIcon');
-    const status = document.getElementById('courseStatus');
-    const hint = document.getElementById('courseHint');
+    var box = document.getElementById('courseBox');
+    var icon = document.getElementById('courseIcon');
+    var status = document.getElementById('courseStatus');
+    var hint = document.getElementById('courseHint');
     box.className = 'course-box loaded';
     icon.textContent = '\uD83D\uDCC2';
     status.textContent = courses.length + '\uAC1C \uAC15\uC88C \uB85C\uB4DC\uB428';
@@ -550,28 +760,28 @@
       return val.getFullYear() + '-' + String(val.getMonth() + 1).padStart(2, '0') + '-' + String(val.getDate()).padStart(2, '0');
     }
     if (typeof val === 'number' && val > 30000 && val < 60000) {
-      const d = new Date(Math.round((val - 25569) * 86400000));
+      var d = new Date(Math.round((val - 25569) * 86400000));
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
     if (typeof val === 'string') {
-      const m = val.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+      var m = val.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
       if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
     }
     return null;
   }
 
   function getDayOfWeek(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
+    var d = new Date(dateStr + 'T00:00:00');
     return ['\uC77C','\uC6D4','\uD654','\uC218','\uBAA9','\uAE08','\uD1A0'][d.getDay()];
   }
 
   function formatDateShort(dateStr) {
-    const parts = dateStr.split('-');
+    var parts = dateStr.split('-');
     return parseInt(parts[1]) + '/' + parseInt(parts[2]) + '(' + getDayOfWeek(dateStr) + ')';
   }
 
   async function handleAttendFile(input) {
-    const file = input.files[0];
+    var file = input.files[0];
     if (!file) return;
     if (!courses || courses.length === 0) {
       alert('\uAC15\uC88C\uBAA9\uB85D\uC744 \uBA3C\uC800 \uC124\uC815\uD558\uC138\uC694.');
@@ -579,24 +789,24 @@
       return;
     }
     attendFilename = file.name.replace(/\.[^.]+$/, '').replace(/\s*\(\d+\)$/, '');
-    const rangeMatch = attendFilename.match(/(\d{4}-\d{2}-\d{2})~(\d{4}-\d{2}-\d{2})/);
+    var rangeMatch = attendFilename.match(/(\d{4}-\d{2}-\d{2})~(\d{4}-\d{2}-\d{2})/);
     attendDateRange = rangeMatch ? { from: rangeMatch[1], to: rangeMatch[2] } : null;
-    const singleMatch = !rangeMatch ? attendFilename.match(/(\d{4}-\d{2}-\d{2})/) : null;
-    const data = await readFile(file);
+    var singleMatch = !rangeMatch ? attendFilename.match(/(\d{4}-\d{2}-\d{2})/) : null;
+    var data = await readFile(file);
 
-    if (is1in1gi()) {
+    if (is1in1gi() || isBangkwahu()) {
       handleAttendFile1in1gi(data);
     } else {
       handleAttendFileRegular(data);
     }
 
-    const bar = document.getElementById('attendBar');
-    const nameEl = document.getElementById('attendName');
-    const hintEl = document.getElementById('attendHint2');
+    var bar = document.getElementById('attendBar');
+    var nameEl = document.getElementById('attendName');
+    var hintEl = document.getElementById('attendHint2');
     bar.style.display = '';
     nameEl.textContent = attendFilename;
-    if (is1in1gi()) {
-      const cnt = Object.keys(attendedByDate).reduce((s, k) => s + attendedByDate[k].size, 0);
+    if (is1in1gi() || isBangkwahu()) {
+      var cnt = Object.keys(attendedByDate).reduce(function(s, k) { return s + attendedByDate[k].size; }, 0);
       hintEl.textContent = cnt + '\uAC74 \uD30C\uC2F1' + (attendDateRange ? ' | ' + formatRangeShort(attendDateRange.from) + ' ~ ' + formatRangeShort(attendDateRange.to) : '');
     } else {
       hintEl.textContent = attended.size + '\uAC1C \uAC15\uC88C \uD30C\uC2F1' + (singleMatch ? ' | ' + formatRangeShort(singleMatch[1]) : '');
@@ -607,49 +817,49 @@
   }
 
   function handleAttendFileRegular(data) {
-    const wb = XLSX.read(data, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(ws);
-    const pat = /^(.+)\(([^)]+)\)-(.+)$/;
+    var wb = XLSX.read(data, { type: 'array' });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var json = XLSX.utils.sheet_to_json(ws);
+    var pat = /^(.+)\(([^)]+)\)-(.+)$/;
     attended = new Set();
-    json.forEach(row => {
-      const vals = Object.values(row);
-      for (let i = 0; i < vals.length; i++) {
-        const v = String(vals[i] || '').trim();
-        const m = v.match(pat);
+    json.forEach(function(row) {
+      var vals = Object.values(row);
+      for (var i = 0; i < vals.length; i++) {
+        var v = String(vals[i] || '').trim();
+        var m = v.match(pat);
         if (m) { attended.add(normalize(m[1]) + '||' + normalize(m[2])); break; }
       }
     });
   }
 
   function handleAttendFile1in1gi(data) {
-    const wb = XLSX.read(data, { type: 'array', cellDates: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(ws);
-    const jsonRaw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: true });
-    const pat = /^(.+)\(([^)]+)\)-(.+)$/;
+    var wb = XLSX.read(data, { type: 'array', cellDates: true });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var json = XLSX.utils.sheet_to_json(ws);
+    var jsonRaw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { raw: true });
+    var pat = /^(.+)\(([^)]+)\)-(.+)$/;
     attendedByDate = {};
 
-    for (let ri = 0; ri < json.length; ri++) {
-      const vals = Object.values(json[ri]);
-      const valsRaw = Object.values(jsonRaw[ri] || json[ri]);
-      let dateStr = null;
-      let courseKey = null;
+    for (var ri = 0; ri < json.length; ri++) {
+      var vals = Object.values(json[ri]);
+      var valsRaw = Object.values(jsonRaw[ri] || json[ri]);
+      var dateStr = null;
+      var courseKey = null;
 
-      for (const v of valsRaw) {
-        dateStr = extractDate(v);
+      for (var vi = 0; vi < valsRaw.length; vi++) {
+        dateStr = extractDate(valsRaw[vi]);
         if (dateStr) break;
       }
       if (!dateStr) {
-        for (const v of vals) {
-          dateStr = extractDate(v);
+        for (var vj = 0; vj < vals.length; vj++) {
+          dateStr = extractDate(vals[vj]);
           if (dateStr) break;
         }
       }
 
-      for (const v of vals) {
-        const s = String(v || '').trim();
-        const m = s.match(pat);
+      for (var vk = 0; vk < vals.length; vk++) {
+        var s = String(vals[vk] || '').trim();
+        var m = s.match(pat);
         if (m) { courseKey = normalize(m[1]) + '||' + normalize(m[2]); break; }
       }
 
@@ -660,9 +870,9 @@
     }
 
     if (!scheduleLoaded) {
-      const courseKeys = new Set(courses.map(c => normalize(c.name) + '||' + normalize(c.teacher)));
-      classDates = Object.keys(attendedByDate).filter(d => {
-        for (const key of attendedByDate[d]) {
+      var courseKeys = new Set(courses.map(function(c) { return normalize(c.name) + '||' + normalize(c.teacher); }));
+      classDates = Object.keys(attendedByDate).filter(function(d) {
+        for (var key of attendedByDate[d]) {
           if (courseKeys.has(key)) return true;
         }
         return false;
@@ -671,7 +881,9 @@
   }
 
   function runComparison() {
-    if (is1in1gi()) {
+    if (isBangkwahu()) {
+      runComparisonBang();
+    } else if (is1in1gi()) {
       runComparison1in1gi();
     } else {
       runComparisonRegular();
@@ -679,62 +891,44 @@
   }
 
   function runComparisonRegular() {
-    const dayCourses = courses.filter(c => c.days.includes(selectedDay));
-    const missing = dayCourses.filter(c => !attended.has(normalize(c.name) + '||' + normalize(c.teacher)));
+    var dayCourses = courses.filter(function(c) { return c.days.includes(selectedDay); });
+    var missing = dayCourses.filter(function(c) { return !attended.has(normalize(c.name) + '||' + normalize(c.teacher)); });
     results = missing;
-    const tbody = document.getElementById('resultBody');
-    const table = document.getElementById('resultTable');
-    const empty = document.getElementById('emptyMsg');
-    const summary = document.getElementById('resultSummary');
-    const singleMatch = attendFilename.match(/(\d{4}-\d{2}-\d{2})/);
-    const dateLabel = singleMatch ? ' | ' + formatRangeShort(singleMatch[1]) : '';
+    var summary = document.getElementById('resultSummary');
+    var singleMatch = attendFilename.match(/(\d{4}-\d{2}-\d{2})/);
+    var dateLabel = singleMatch ? ' | ' + formatRangeShort(singleMatch[1]) : '';
     summary.textContent = selectedDay + '\uC694\uC77C \uC804\uCCB4 ' + dayCourses.length + '\uAC1C \uAC15\uC88C \uC911 \uBBF8\uC785\uB825: ' + missing.length + '\uAC1C' + dateLabel;
-    tbody.innerHTML = '';
-    if (missing.length > 0) {
-      table.style.display = '';
-      empty.style.display = 'none';
-      missing.forEach((c, i) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-gr">' + c.grade + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td>';
-        tbody.appendChild(tr);
-      });
-    } else {
-      table.style.display = 'none';
-      empty.style.display = '';
-      empty.textContent = '\uBBF8\uC785\uB825 \uAC15\uC88C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4';
-    }
+    sortState = { col: null, dir: 'asc' };
+    renderTableHead();
+    renderTableBody();
   }
 
   function formatRangeShort(d) {
-    const p = d.split('-');
+    var p = d.split('-');
     return parseInt(p[1]) + '/' + parseInt(p[2]) + '(' + getDayOfWeek(d) + ')';
   }
 
   function formatRange() {
     if (!attendDateRange) return '';
-    const f = d => { const p = d.split('-'); return parseInt(p[1]) + '/' + parseInt(p[2]); };
+    var f = function(d) { var p = d.split('-'); return parseInt(p[1]) + '/' + parseInt(p[2]); };
     return ' | ' + f(attendDateRange.from) + ' ~ ' + f(attendDateRange.to);
   }
 
   function runComparison1in1gi() {
-    let filteredDates = classDates.filter(d => selectedDays1in1gi.includes(getDayOfWeek(d)));
+    var filteredDates = classDates.filter(function(d) { return selectedDays1in1gi.includes(getDayOfWeek(d)); });
     if (attendDateRange) {
-      filteredDates = filteredDates.filter(d => d >= attendDateRange.from && d <= attendDateRange.to);
+      filteredDates = filteredDates.filter(function(d) { return d >= attendDateRange.from && d <= attendDateRange.to; });
     }
-    const tbody = document.getElementById('resultBody');
-    const table = document.getElementById('resultTable');
-    const empty = document.getElementById('emptyMsg');
-    const summary = document.getElementById('resultSummary');
-    tbody.innerHTML = '';
+    var summary = document.getElementById('resultSummary');
 
     if (queryMode === 'missing') {
-      const courseMap = {};
+      var courseMap = {};
 
       if (scheduleLoaded) {
-        filteredDates.forEach(dateStr => {
-          const entries = scheduleByDate[dateStr] || [];
-          const attendedSet = attendedByDate[dateStr] || new Set();
-          entries.forEach(e => {
+        filteredDates.forEach(function(dateStr) {
+          var entries = scheduleByDate[dateStr] || [];
+          var attendedSet = attendedByDate[dateStr] || new Set();
+          entries.forEach(function(e) {
             if (!attendedSet.has(e.key)) {
               if (!courseMap[e.key]) courseMap[e.key] = { course: e.course, missingDates: [] };
               courseMap[e.key].missingDates.push(dateStr);
@@ -742,12 +936,12 @@
           });
         });
       } else {
-        filteredDates.forEach(dateStr => {
-          const day = getDayOfWeek(dateStr);
-          const dayCourses = courses.filter(c => c.days.includes(day));
-          const attendedSet = attendedByDate[dateStr] || new Set();
-          dayCourses.forEach(c => {
-            const key = normalize(c.name) + '||' + normalize(c.teacher);
+        filteredDates.forEach(function(dateStr) {
+          var day = getDayOfWeek(dateStr);
+          var dayCourses = courses.filter(function(c) { return c.days.includes(day); });
+          var attendedSet = attendedByDate[dateStr] || new Set();
+          dayCourses.forEach(function(c) {
+            var key = normalize(c.name) + '||' + normalize(c.teacher);
             if (!attendedSet.has(key)) {
               if (!courseMap[key]) courseMap[key] = { course: c, missingDates: [] };
               courseMap[key].missingDates.push(dateStr);
@@ -756,76 +950,81 @@
         });
       }
 
-      results1in1gi = Object.values(courseMap).sort((a, b) => a.course.seq_no - b.course.seq_no);
+      results1in1gi = Object.values(courseMap).sort(function(a, b) { return a.course.seq_no - b.course.seq_no; });
       summary.textContent = '1\uC7781\uAE30 \uCD9C\uACB0 \uBBF8\uC785\uB825: ' + results1in1gi.length + '\uAC1C \uAC15\uC88C (' + filteredDates.length + '\uC77C \uAE30\uC900)' + formatRange();
-
-      if (results1in1gi.length > 0) {
-        table.style.display = '';
-        empty.style.display = 'none';
-        results1in1gi.forEach((item, i) => {
-          const c = item.course;
-          const dates = item.missingDates.map(d => {
-            const p = d.split('-');
-            return parseInt(p[1]) + '/' + parseInt(p[2]);
-          }).join(', ');
-          const tr = document.createElement('tr');
-          tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-uid">' + c.seq_no + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td><td class="c-miss">' + dates + '</td>';
-          tbody.appendChild(tr);
-        });
-      } else {
-        table.style.display = 'none';
-        empty.style.display = '';
-        empty.textContent = '\uBBF8\uC785\uB825 \uAC15\uC88C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4';
-      }
     } else {
-      const courseMap = {};
+      var courseMap2 = {};
 
       if (scheduleLoaded) {
-        filteredDates.forEach(dateStr => {
-          const entries = scheduleByDate[dateStr] || [];
-          const attendedSet = attendedByDate[dateStr] || new Set();
-          entries.forEach(e => {
+        filteredDates.forEach(function(dateStr) {
+          var entries = scheduleByDate[dateStr] || [];
+          var attendedSet = attendedByDate[dateStr] || new Set();
+          entries.forEach(function(e) {
             if (attendedSet.has(e.key)) {
-              if (!courseMap[e.key]) courseMap[e.key] = { course: e.course, hours: 0 };
-              courseMap[e.key].hours++;
+              if (!courseMap2[e.key]) courseMap2[e.key] = { course: e.course, hours: 0 };
+              courseMap2[e.key].hours++;
             }
           });
         });
       } else {
-        filteredDates.forEach(dateStr => {
-          const attendedSet = attendedByDate[dateStr] || new Set();
-          courses.forEach(c => {
-            const key = normalize(c.name) + '||' + normalize(c.teacher);
+        filteredDates.forEach(function(dateStr) {
+          var attendedSet = attendedByDate[dateStr] || new Set();
+          courses.forEach(function(c) {
+            var key = normalize(c.name) + '||' + normalize(c.teacher);
             if (attendedSet.has(key)) {
-              if (!courseMap[key]) courseMap[key] = { course: c, hours: 0 };
-              courseMap[key].hours++;
+              if (!courseMap2[key]) courseMap2[key] = { course: c, hours: 0 };
+              courseMap2[key].hours++;
             }
           });
         });
       }
 
-      results1in1gi = Object.values(courseMap).sort((a, b) => a.course.seq_no - b.course.seq_no);
+      results1in1gi = Object.values(courseMap2).sort(function(a, b) { return a.course.seq_no - b.course.seq_no; });
       summary.textContent = '1\uC7781\uAE30 \uC2DC\uC218 \uC870\uD68C: ' + results1in1gi.length + '\uAC1C \uAC15\uC88C (' + filteredDates.length + '\uC77C \uAE30\uC900)' + formatRange();
-
-      if (results1in1gi.length > 0) {
-        table.style.display = '';
-        empty.style.display = 'none';
-        results1in1gi.forEach((item, i) => {
-          const c = item.course;
-          const tr = document.createElement('tr');
-          tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-uid">' + c.seq_no + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td><td class="c-hrs">' + item.hours + '</td>';
-          tbody.appendChild(tr);
-        });
-      } else {
-        table.style.display = 'none';
-        empty.style.display = '';
-        empty.textContent = '\uCD9C\uACB0 \uC785\uB825\uB41C \uAC15\uC88C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4';
-      }
     }
+
+    sortState = { col: null, dir: 'asc' };
+    renderTableHead();
+    renderTableBody();
+  }
+
+  function runComparisonBang() {
+    var filteredDates = classDates.filter(function(d) { return selectedDaysBang.includes(getDayOfWeek(d)); });
+    if (attendDateRange) {
+      filteredDates = filteredDates.filter(function(d) { return d >= attendDateRange.from && d <= attendDateRange.to; });
+    }
+    var summary = document.getElementById('resultSummary');
+    var courseMap = {};
+
+    filteredDates.forEach(function(dateStr) {
+      var day = getDayOfWeek(dateStr);
+      var dayCourses = courses.filter(function(c) { return c.days.includes(day); });
+      var attendedSet = attendedByDate[dateStr] || new Set();
+      dayCourses.forEach(function(c) {
+        var key = normalize(c.name) + '||' + normalize(c.teacher);
+        if (!attendedSet.has(key)) {
+          if (!courseMap[key]) courseMap[key] = { course: c, missingDates: [] };
+          var timesForDay = (c.times || []).filter(function(t) { return t.charAt(0) === day; });
+          var period = timesForDay.map(function(t) { return t.slice(1); }).join(',');
+          courseMap[key].missingDates.push({ date: dateStr, day: day, period: period });
+        }
+      });
+    });
+
+    resultsBang = Object.values(courseMap);
+    resultsBang.forEach(function(item) { item.missingCount = item.missingDates.length; });
+    resultsBang.sort(function(a, b) { return (a.course.seq_no || 0) - (b.course.seq_no || 0); });
+
+    summary.textContent = '\uBC29\uACFC\uD6C4 \uCD9C\uACB0 \uBBF8\uC785\uB825: ' + resultsBang.length + '\uAC1C \uAC15\uC88C (' + filteredDates.length + '\uC77C \uAE30\uC900)' + formatRange();
+    sortState = { col: null, dir: 'asc' };
+    renderTableHead();
+    renderTableBody();
   }
 
   function exportExcel() {
-    if (is1in1gi()) {
+    if (isBangkwahu()) {
+      exportExcelBang();
+    } else if (is1in1gi()) {
       exportExcel1in1gi();
     } else {
       exportExcelRegular();
@@ -833,14 +1032,14 @@
   }
 
   function applyExcelStyle(ws) {
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    const center = { alignment: { horizontal: 'center', vertical: 'center' } };
-    const headerStyle = { alignment: { horizontal: 'center', vertical: 'center' }, font: { bold: true }, fill: { fgColor: { rgb: 'F2F2F2' } } };
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const hAddr = XLSX.utils.encode_cell({ r: 0, c: c });
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var center = { alignment: { horizontal: 'center', vertical: 'center' } };
+    var headerStyle = { alignment: { horizontal: 'center', vertical: 'center' }, font: { bold: true }, fill: { fgColor: { rgb: 'F2F2F2' } } };
+    for (var c = range.s.c; c <= range.e.c; c++) {
+      var hAddr = XLSX.utils.encode_cell({ r: 0, c: c });
       if (ws[hAddr]) ws[hAddr].s = headerStyle;
-      for (let r = 1; r <= range.e.r; r++) {
-        const addr = XLSX.utils.encode_cell({ r: r, c: c });
+      for (var r = 1; r <= range.e.r; r++) {
+        var addr = XLSX.utils.encode_cell({ r: r, c: c });
         if (ws[addr]) ws[addr].s = center;
       }
     }
@@ -850,54 +1049,107 @@
 
   function exportExcelRegular() {
     if (results.length === 0) { alert('\uB0B4\uBCF4\uB0BC \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.'); return; }
-    const rows = results.map((c, i) => ({ '\uC21C\uBC88': i + 1, '\uD559\uB144': c.grade, '\uAC15\uC88C\uBA85': c.name, '\uC9C0\uB3C4\uAD50\uC0AC': c.teacher, '\uC7A5\uC18C': c.location }));
-    const ws = XLSX.utils.json_to_sheet(rows);
+    var rows = results.map(function(c, i) { return { '\uC21C\uBC88': i + 1, '\uD559\uB144': c.grade, '\uAC15\uC88C\uBA85': c.name, '\uC9C0\uB3C4\uAD50\uC0AC': c.teacher, '\uC7A5\uC18C': c.location }; });
+    var ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = [{ wch: 5 }, { wch: 6 }, { wch: 30 }, { wch: 10 }, { wch: 8 }];
     applyExcelStyle(ws);
-    const wb = XLSX.utils.book_new();
+    var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '\uBBF8\uC785\uB825');
     XLSX.writeFile(wb, attendFilename ? '\uBBF8\uC785\uB825_' + attendFilename + '.xlsx' : '\uBBF8\uC785\uB825_\uACB0\uACFC.xlsx');
   }
 
   function exportExcel1in1gi() {
     if (results1in1gi.length === 0) { alert('\uB0B4\uBCF4\uB0BC \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.'); return; }
-    let rows, colWidths, sheetName, fileName;
+    var rows, colWidths, sheetName, fileName;
 
     if (queryMode === 'missing') {
-      rows = results1in1gi.map((item, i) => ({
-        '\uC21C\uBC88': i + 1,
-        '\uACE0\uC720\uBC88\uD638': item.course.seq_no,
-        '\uAC15\uC88C\uBA85': item.course.name,
-        '\uC9C0\uB3C4\uAD50\uC0AC': item.course.teacher,
-        '\uC7A5\uC18C': item.course.location,
-        '\uBBF8\uC785\uB825 \uB0A0\uC9DC': item.missingDates.map(d => {
-          const p = d.split('-');
-          return parseInt(p[1]) + '/' + parseInt(p[2]);
-        }).join(', ')
-      }));
+      rows = results1in1gi.map(function(item, i) {
+        return {
+          '\uC21C\uBC88': i + 1,
+          '\uACE0\uC720\uBC88\uD638': item.course.seq_no,
+          '\uAC15\uC88C\uBA85': item.course.name,
+          '\uC9C0\uB3C4\uAD50\uC0AC': item.course.teacher,
+          '\uC7A5\uC18C': item.course.location,
+          '\uBBF8\uC785\uB825 \uB0A0\uC9DC': item.missingDates.map(function(d) {
+            var p = d.split('-');
+            return parseInt(p[1]) + '/' + parseInt(p[2]);
+          }).join(', ')
+        };
+      });
       colWidths = [{ wch: 5 }, { wch: 8 }, { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 20 }];
       sheetName = '\uBBF8\uC785\uB825';
       fileName = attendFilename ? '\uBBF8\uC785\uB825_1\uC7781\uAE30_' + attendFilename + '.xlsx' : '\uBBF8\uC785\uB825_1\uC7781\uAE30.xlsx';
     } else {
-      rows = results1in1gi.map((item, i) => ({
-        '\uC21C\uBC88': i + 1,
-        '\uACE0\uC720\uBC88\uD638': item.course.seq_no,
-        '\uAC15\uC88C\uBA85': item.course.name,
-        '\uC9C0\uB3C4\uAD50\uC0AC': item.course.teacher,
-        '\uC7A5\uC18C': item.course.location,
-        '\uC2DC\uC218': item.hours
-      }));
+      rows = results1in1gi.map(function(item, i) {
+        return {
+          '\uC21C\uBC88': i + 1,
+          '\uACE0\uC720\uBC88\uD638': item.course.seq_no,
+          '\uAC15\uC88C\uBA85': item.course.name,
+          '\uC9C0\uB3C4\uAD50\uC0AC': item.course.teacher,
+          '\uC7A5\uC18C': item.course.location,
+          '\uC2DC\uC218': item.hours
+        };
+      });
       colWidths = [{ wch: 5 }, { wch: 8 }, { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 6 }];
       sheetName = '\uC2DC\uC218';
       fileName = attendFilename ? '\uC2DC\uC218_1\uC7781\uAE30_' + attendFilename + '.xlsx' : '\uC2DC\uC218_1\uC7781\uAE30.xlsx';
     }
 
-    const ws = XLSX.utils.json_to_sheet(rows);
+    var ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = colWidths;
     applyExcelStyle(ws);
-    const wb = XLSX.utils.book_new();
+    var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, fileName);
+  }
+
+  function exportExcelBang() {
+    if (resultsBang.length === 0) { alert('\uB0B4\uBCF4\uB0BC \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.'); return; }
+    var rows, colWidths;
+
+    if (groupByTeacher) {
+      rows = [];
+      var teacherMap = {};
+      resultsBang.forEach(function(item) {
+        var t = item.course.teacher;
+        if (!teacherMap[t]) teacherMap[t] = [];
+        teacherMap[t].push(item);
+      });
+      var teachers = Object.keys(teacherMap).sort(function(a, b) { return a.localeCompare(b, 'ko'); });
+      var seq = 1;
+      teachers.forEach(function(teacher) {
+        teacherMap[teacher].forEach(function(item, idx) {
+          rows.push({
+            '\uC21C\uBC88': idx === 0 ? seq : '',
+            '\uC9C0\uB3C4\uAD50\uC0AC': idx === 0 ? teacher : '',
+            '\uAC15\uC88C\uBA85': item.course.name,
+            '\uBBF8\uC785\uB825 \uB0A0\uC9DC': formatBangDates(item.missingDates)
+          });
+        });
+        seq++;
+      });
+      colWidths = [{ wch: 5 }, { wch: 10 }, { wch: 30 }, { wch: 30 }];
+    } else {
+      rows = resultsBang.map(function(item, i) {
+        return {
+          '\uC21C\uBC88': i + 1,
+          '\uACE0\uC720\uBC88\uD638': item.course.seq_no,
+          '\uAC15\uC88C\uBA85': item.course.name,
+          '\uC9C0\uB3C4\uAD50\uC0AC': item.course.teacher,
+          '\uC7A5\uC18C': item.course.location,
+          '\uBBF8\uC785\uB825 \uB0A0\uC9DC': formatBangDates(item.missingDates),
+          '\uBBF8\uC785\uB825 \uC218': item.missingCount
+        };
+      });
+      colWidths = [{ wch: 5 }, { wch: 8 }, { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 30 }, { wch: 8 }];
+    }
+
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = colWidths;
+    applyExcelStyle(ws);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '\uBBF8\uC785\uB825');
+    XLSX.writeFile(wb, attendFilename ? '\uBBF8\uC785\uB825_\uBC29\uACFC\uD6C4_' + attendFilename + '.xlsx' : '\uBBF8\uC785\uB825_\uBC29\uACFC\uD6C4.xlsx');
   }
 
   const TOUR_STEPS = [
@@ -906,11 +1158,12 @@
     { sel: '#scheduleBox', title: '3. 수업 일정 (1인1기)', text: '1인1기 선택 시 서명록 스프레드시트에서 수업 일정을 자동으로 불러옵니다. 보강/휴강 등 변경사항이 실시간 반영돼요.', lift: 'sidebar' },
     { sel: '#daySection', title: '4. 요일 선택', text: '정규수업에서 출결기록 날짜에 해당하는 요일을 선택하세요.', lift: 'sidebar' },
     { sel: '#modeSection', title: '4. 조회 모드 (1인1기)', text: '미입력 조회는 출결 미입력 강좌를, 시수 조회는 강좌별 입력된 시수를 보여줍니다. 월/수/금 요일 필터로 원하는 요일만 조회할 수 있어요.', lift: 'sidebar' },
+    { sel: '#bangSection', title: '4. 요일 필터 (방과후)', text: '방과후학교 선택 시 요일별 필터와 강사별 보기를 설정할 수 있어요. 미입력 날짜에 교시 정보가 함께 표시됩니다.', lift: 'sidebar' },
     { sel: '.btn-primary', title: '5. 출결기록 불러오기', text: '', lift: 'main', dynamic: true },
     { sel: '.btn-outline', title: '6. 내보내기', text: '조회된 결과를 엑셀 파일로 다운로드할 수 있어요.', lift: 'main' }
   ];
-  let tourStep = 0;
-  let prevTarget = null;
+  var tourStep = 0;
+  var prevTarget = null;
 
   function startTour() {
     tourStep = 0;
@@ -930,8 +1183,8 @@
 
   function showTourStep() {
     if (tourStep >= TOUR_STEPS.length) { endTour(); return; }
-    const step = TOUR_STEPS[tourStep];
-    const el = document.querySelector(step.sel);
+    var step = TOUR_STEPS[tourStep];
+    var el = document.querySelector(step.sel);
     if (!el || el.offsetParent === null) { tourStep++; showTourStep(); return; }
 
     if (prevTarget) prevTarget.classList.remove('tour-target');
@@ -944,24 +1197,24 @@
     el.classList.add('tour-target');
     prevTarget = el;
 
-    const rect = el.getBoundingClientRect();
-    const tip = document.getElementById('tourTip');
+    var rect = el.getBoundingClientRect();
+    var tip = document.getElementById('tourTip');
     var stepText = step.text;
     if (step.dynamic) {
       stepText = is1in1gi()
-        ? '리로스쿨 > 출결내역 조회 > 전체 선택 > 해당 1인1기 강좌 묶음 선택 > 날짜 설정 후 엑셀저장. 파일명에 날짜 범위(예: 2026-03-04~2026-05-10)가 있으면 해당 기간만 자동 조회됩니다.'
-        : '리로스쿨 > 출결내역 조회 > 전체 선택 > 해당 정규수업 강좌 묶음 선택 > 날짜 설정 후 엑셀저장. 업로드하면 선택한 요일의 미입력 강좌를 자동으로 찾아줍니다.';
+        ? '\uB9AC\uB85C\uC2A4\uCFE8 > \uCD9C\uACB0\uB0B4\uC5ED \uC870\uD68C > \uC804\uCCB4 \uC120\uD0DD > \uD574\uB2F9 1\uC7781\uAE30 \uAC15\uC88C \uBB36\uC74C \uC120\uD0DD > \uB0A0\uC9DC \uC124\uC815 \uD6C4 \uC5D1\uC140\uC800\uC7A5. \uD30C\uC77C\uBA85\uC5D0 \uB0A0\uC9DC \uBC94\uC704(\uC608: 2026-03-04~2026-05-10)\uAC00 \uC788\uC73C\uBA74 \uD574\uB2F9 \uAE30\uAC04\uB9CC \uC790\uB3D9 \uC870\uD68C\uB429\uB2C8\uB2E4.'
+        : '\uB9AC\uB85C\uC2A4\uCFE8 > \uCD9C\uACB0\uB0B4\uC5ED \uC870\uD68C > \uC804\uCCB4 \uC120\uD0DD > \uD574\uB2F9 \uC815\uADDC\uC218\uC5C5 \uAC15\uC88C \uBB36\uC74C \uC120\uD0DD > \uB0A0\uC9DC \uC124\uC815 \uD6C4 \uC5D1\uC140\uC800\uC7A5. \uC5C5\uB85C\uB4DC\uD558\uBA74 \uC120\uD0DD\uD55C \uC694\uC77C\uC758 \uBBF8\uC785\uB825 \uAC15\uC88C\uB97C \uC790\uB3D9\uC73C\uB85C \uCC3E\uC544\uC90D\uB2C8\uB2E4.';
     }
     tip.innerHTML = '<h3>' + step.title + '</h3><p>' + stepText + '</p>' +
       '<div class="tour-nav"><span class="tour-dots">' + (tourStep + 1) + ' / ' + TOUR_STEPS.length + '</span>' +
-      '<div class="tour-btns"><button class="tour-btn tour-skip" onclick="endTour()">건너뛰기</button>' +
+      '<div class="tour-btns"><button class="tour-btn tour-skip" onclick="endTour()">\uAC74\uB108\uB6F0\uAE30</button>' +
       '<button class="tour-btn tour-next" onclick="tourStep++;showTourStep()">' +
-      (tourStep === TOUR_STEPS.length - 1 ? '완료' : '다음') + '</button></div></div>';
+      (tourStep === TOUR_STEPS.length - 1 ? '\uC644\uB8CC' : '\uB2E4\uC74C') + '</button></div></div>';
     tip.style.display = '';
 
-    const tipW = 280;
-    let left = rect.right + 16;
-    let top = rect.top;
+    var tipW = 280;
+    var left = rect.right + 16;
+    var top = rect.top;
     if (left + tipW > window.innerWidth) {
       left = rect.left - tipW - 16;
       if (left < 8) {
