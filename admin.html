@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>출결 현황 관리 - 관리자</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;display:flex;flex-direction:column}
+    input[type="file"]{display:none}
+
+    .header{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .header-left{display:flex;align-items:center;gap:14px}
+    .header h1{font-size:17px;font-weight:700;color:#0f172a}
+    .header-badge{font-size:11px;color:#64748b;background:#f1f5f9;padding:3px 10px;border-radius:20px;font-weight:500}
+    .btn-link{font-size:12px;color:#64748b;background:none;border:1px solid #e2e8f0;border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;transition:all .15s;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+    .btn-link:hover{background:#f8fafc;border-color:#cbd5e1}
+
+    .gate{display:flex;align-items:center;justify-content:center;flex:1;padding:40px 20px}
+    .gate-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:40px;text-align:center;width:340px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+    .gate-box h2{font-size:18px;font-weight:700;color:#0f172a;margin-bottom:8px}
+    .gate-box p{font-size:13px;color:#94a3b8;margin-bottom:20px}
+    .gate-input{width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit;text-align:center;letter-spacing:4px}
+    .gate-input:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+    .gate-err{color:#dc2626;font-size:12px;margin-top:8px;display:none}
+
+    .admin-wrap{flex:1;display:none;flex-direction:column;overflow:hidden}
+    .tabs{display:flex;background:#fff;border-bottom:1px solid #e2e8f0;padding:0 24px;gap:0}
+    .tab-btn{padding:14px 20px;background:none;border:none;border-bottom:2px solid transparent;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;font-family:inherit;transition:all .15s}
+    .tab-btn:hover{color:#475569}
+    .tab-btn.active{color:#3b82f6;border-bottom-color:#3b82f6}
+    .tab-content{flex:1;overflow-y:auto;padding:24px;display:none}
+    .tab-content.active{display:block}
+
+    .section{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:20px}
+    .section h3{font-size:14px;font-weight:700;color:#0f172a;margin-bottom:14px}
+
+    .form-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+    .form-group{display:flex;flex-direction:column;gap:4px}
+    .form-group label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px}
+    .form-group input,.form-group select{padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:#1e293b}
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+
+    .btn{padding:9px 18px;border:none;border-radius:8px;font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;transition:all .12s}
+    .btn-primary{background:#3b82f6;color:#fff}
+    .btn-primary:hover{background:#2563eb}
+    .btn-danger{background:#ef4444;color:#fff}
+    .btn-danger:hover{background:#dc2626}
+    .btn-outline{background:#fff;color:#475569;border:1px solid #e2e8f0}
+    .btn-outline:hover{background:#f8fafc}
+    .btn-sm{padding:5px 12px;font-size:12px}
+    .btn-icon{padding:5px 8px;font-size:14px;line-height:1;background:none;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;color:#64748b}
+    .btn-icon:hover{background:#f1f5f9}
+
+    .tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .tbl th{background:#f8fafc;font-weight:600;text-align:center;padding:9px 14px;border-bottom:1px solid #e2e8f0}
+    .tbl td{padding:8px 14px;border-bottom:1px solid #f1f5f9;text-align:center}
+    .tbl tr:hover td{background:#eff6ff}
+    .tbl td.left{text-align:left}
+    .tbl td.mono{font-size:11px;color:#64748b;word-break:break-all;max-width:200px;text-align:left}
+
+    .empty-msg{text-align:center;padding:40px 20px;color:#94a3b8;font-size:14px}
+
+    .sb-select{width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:#1e293b;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+    .sb-select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+
+    .preview-wrap{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:16px 0;max-height:300px;overflow-y:auto}
+    .preview-wrap h4{font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px}
+
+    .guide-block{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:24px;margin-bottom:20px}
+    .guide-block h3{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:12px}
+    .guide-block ol{padding-left:20px;font-size:13px;line-height:2;color:#475569}
+    .guide-block code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;font-family:'Consolas','Monaco',monospace}
+    .guide-block .code-box{background:#1e293b;color:#e2e8f0;border-radius:8px;padding:16px;margin:12px 0;font-size:12px;font-family:'Consolas','Monaco',monospace;white-space:pre-wrap;position:relative;line-height:1.6;max-height:300px;overflow-y:auto}
+    .btn-copy{position:absolute;top:8px;right:8px;padding:4px 10px;background:#334155;color:#94a3b8;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-family:inherit}
+    .btn-copy:hover{background:#475569;color:#fff}
+    .guide-block table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+    .guide-block table th,.guide-block table td{border:1px solid #e2e8f0;padding:6px 10px;text-align:center}
+    .guide-block table th{background:#f8fafc;font-weight:600}
+
+    .spinner{display:inline-block;width:14px;height:14px;border:2px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 24px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none}
+    .toast.show{opacity:1}
+
+    .footer{background:#fff;border-top:1px solid #e2e8f0;padding:12px 24px;text-align:center;font-size:11px;color:#94a3b8;flex-shrink:0}
+
+    @media(max-width:768px){
+      .header{padding:0 16px}
+      .header h1{font-size:15px}
+      .tabs{padding:0 16px}
+      .tab-btn{padding:12px 14px;font-size:12px}
+      .tab-content{padding:16px}
+      .form-row{flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <h1>출결 현황 관리</h1>
+    <span class="header-badge">관리자</span>
+  </div>
+  <a class="btn-link" href="/">&#8592; 메인으로</a>
+</header>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h2>관리자 인증</h2>
+    <p>비밀번호를 입력하세요</p>
+    <input class="gate-input" id="pwInput" type="password" maxlength="10" placeholder="****" onkeydown="if(event.key==='Enter')checkPw()">
+    <div class="gate-err" id="pwErr">비밀번호가 틀렸습니다</div>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="checkPw()">확인</button>
+  </div>
+</div>
+
+<div class="admin-wrap" id="adminWrap">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(0)">카테고리 관리</button>
+    <button class="tab-btn" onclick="switchTab(1)">강좌 관리</button>
+    <button class="tab-btn" onclick="switchTab(2)">서명록 설정 가이드</button>
+  </div>
+
+  <div class="tab-content active" id="tab0">
+    <div class="section">
+      <h3>카테고리 추가</h3>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>이름</label>
+          <input id="catLabel" placeholder="예: 26학년도 1학기 정규수업">
+        </div>
+        <div class="form-group">
+          <label>유형</label>
+          <select id="catType">
+            <option value="regular">정규수업</option>
+            <option value="1in1gi">1인1기</option>
+            <option value="bangkwahu">방과후학교</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>서명록 URL (선택)</label>
+          <input id="catUrl" placeholder="Apps Script 배포 URL">
+        </div>
+        <button class="btn btn-primary" onclick="addCategory()">추가</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3>카테고리 목록</h3>
+      <table class="tbl" id="catTable">
+        <thead><tr><th style="width:100px">순서</th><th>이름</th><th style="width:90px">유형</th><th>서명록 URL</th><th style="width:120px;white-space:nowrap">순서 변경</th><th style="width:80px">삭제</th></tr></thead>
+        <tbody id="catBody"></tbody>
+      </table>
+      <div class="empty-msg" id="catEmpty">카테고리가 없습니다</div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab1">
+    <div class="section">
+      <h3>강좌 관리</h3>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label>카테고리 선택</label>
+          <select class="sb-select" id="courseCatSelect" onchange="loadAdminCourses()"></select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <button class="btn btn-primary" onclick="document.getElementById('courseFileInput').click()">엑셀 업로드</button>
+        <input type="file" id="courseFileInput" accept=".xls,.xlsx" onchange="handleAdminCourseFile(this)">
+        <button class="btn btn-outline" onclick="loadAdminCourses()">새로고침</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAllCourses()">전체 삭제</button>
+      </div>
+      <div class="preview-wrap" id="coursePreview" style="display:none">
+        <h4>업로드 미리보기</h4>
+        <table class="tbl" id="previewTable">
+          <thead><tr><th style="width:50px">순번</th><th>강좌명</th><th style="width:80px">지도교사</th><th style="width:60px">학년</th><th style="width:60px">장소</th></tr></thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="uploadCoursesToSupabase()">Supabase 업로드</button>
+          <button class="btn btn-outline" onclick="cancelPreview()">취소</button>
+        </div>
+      </div>
+      <table class="tbl" id="courseTable">
+        <thead><tr><th style="width:50px">ID</th><th>강좌명</th><th style="width:80px">지도교사</th><th style="width:60px">학년</th><th style="width:60px">장소</th><th style="width:60px">삭제</th></tr></thead>
+        <tbody id="courseBody"></tbody>
+      </table>
+      <div class="empty-msg" id="courseEmpty">카테고리를 선택하세요</div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab2">
+    <div class="guide-block">
+      <h3>1인1기 서명록 설정</h3>
+      <ol>
+        <li>Google 스프레드시트를 생성합니다</li>
+        <li>아래 헤더로 시트를 구성합니다:
+          <table>
+            <tr><th>고유번호</th><th>강좌 일자</th><th>요일</th><th>성명</th><th>강좌명</th><th>강좌 시간</th><th>보강 날짜</th></tr>
+            <tr><td>1</td><td>2026-03-04</td><td>수</td><td>홍길동</td><td>기타교실</td><td>(13:00~14:00)</td><td></td></tr>
+          </table>
+        </li>
+        <li><strong>고유번호</strong>는 강좌목록의 순번과 일치해야 합니다</li>
+        <li>스프레드시트에서 <code>확장 프로그램</code> &gt; <code>Apps Script</code>를 클릭합니다</li>
+        <li>기존 코드를 모두 지우고, 아래 코드를 붙여넣습니다:
+          <div class="code-box" id="scriptCode1">function doGet(e) {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get('schedule_json');
+  if (cached) {
+    return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var schedule = [];
+
+  ss.getSheets().forEach(function(sheet) {
+    var data = sheet.getDataRange().getValues();
+
+    var headerIdx = -1;
+    for (var i = 0; i &lt; Math.min(5, data.length); i++) {
+      if (String(data[i][0]).trim() === '고유번호') {
+        headerIdx = i;
+        break;
+      }
+    }
+    if (headerIdx === -1) return;
+
+    var headers = data[headerIdx].map(function(h) { return String(h).trim(); });
+    var ci = {
+      uid: headers.indexOf('고유번호'),
+      date: headers.indexOf('강좌 일자'),
+      day: headers.indexOf('요일'),
+      teacher: headers.indexOf('성명'),
+      course: headers.indexOf('강좌명'),
+      time: headers.indexOf('강좌 시간'),
+      makeup: headers.indexOf('보강 날짜')
+    };
+
+    var cur = { uid: null, teacher: '', course: '', time: '' };
+
+    for (var i = headerIdx + 1; i &lt; data.length; i++) {
+      var row = data[i];
+      var uid = ci.uid >= 0 ? row[ci.uid] : null;
+      var dateVal = ci.date >= 0 ? row[ci.date] : null;
+      var teacher = ci.teacher >= 0 ? row[ci.teacher] : '';
+      var course = ci.course >= 0 ? row[ci.course] : '';
+      var timeVal = ci.time >= 0 ? row[ci.time] : '';
+      var makeup = ci.makeup >= 0 ? row[ci.makeup] : null;
+
+      if (uid !== '' &amp;&amp; uid !== null &amp;&amp; uid !== undefined) {
+        cur.uid = Number(uid);
+      }
+      if (teacher) cur.teacher = String(teacher).trim();
+      if (course) cur.course = String(course).trim();
+      if (timeVal) cur.time = String(timeVal).trim();
+
+      var dateStr = toDateStr_(dateVal);
+      if (!dateStr) continue;
+      if (!cur.uid || !cur.course) continue;
+
+      var timeMatch = cur.time.match(/\(([^)]+)\)/);
+
+      schedule.push({
+        uid: cur.uid,
+        course: cur.course,
+        teacher: cur.teacher,
+        date: dateStr,
+        day: String(ci.day >= 0 ? row[ci.day] || '' : '').trim(),
+        time: timeMatch ? timeMatch[1] : '',
+        makeup: toDateStr_(makeup)
+      });
+    }
+  });
+
+  var output = JSON.stringify({
+    schedule: schedule,
+    count: schedule.length,
+    updatedAt: new Date().toISOString()
+  });
+
+  cache.put('schedule_json', output, 300);
+
+  return ContentService.createTextOutput(output).setMimeType(ContentService.MimeType.JSON);
+}
+
+function toDateStr_(val) {
+  if (!val) return null;
+  if (val instanceof Date &amp;&amp; !isNaN(val)) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  var s = String(val).trim();
+  var m = s.match(/^(\d{2})-(\d{2})-(\d{2})$/);
+  if (m) return '20' + m[1] + '-' + m[2] + '-' + m[3];
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  return null;
+}<button class="btn-copy" onclick="copyCode('scriptCode1')">복사</button></div>
+        </li>
+        <li><code>배포</code> &gt; <code>새 배포</code> &gt; 유형: <code>웹 앱</code> &gt; 액세스 권한: <code>모든 사용자</code>로 배포합니다</li>
+        <li>생성된 URL을 복사하여 <strong>카테고리 관리</strong> 탭에서 해당 1인1기 카테고리의 <strong>서명록 URL</strong>에 입력합니다</li>
+      </ol>
+    </div>
+
+    <div class="guide-block">
+      <h3>방과후학교 서명록 설정</h3>
+      <ol>
+        <li>1인1기와 동일한 구조로 <strong>별도</strong> Google 스프레드시트를 생성합니다</li>
+        <li>동일한 헤더 구성:
+          <table>
+            <tr><th>고유번호</th><th>강좌 일자</th><th>요일</th><th>성명</th><th>강좌명</th><th>강좌 시간</th><th>보강 날짜</th></tr>
+          </table>
+        </li>
+        <li>위와 동일한 Apps Script 코드를 <strong>별도로</strong> 배포합니다 (확장 프로그램 &gt; Apps Script &gt; 위의 코드 붙여넣기)</li>
+        <li><code>배포</code> &gt; <code>새 배포</code> &gt; 유형: <code>웹 앱</code> &gt; 액세스 권한: <code>모든 사용자</code></li>
+        <li>생성된 URL을 복사하여 <strong>카테고리 관리</strong> 탭에서 해당 방과후학교 카테고리의 <strong>서명록 URL</strong>에 입력합니다</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<footer class="footer">&copy; 충남삼성고등학교 민수정 행정실무사 &middot; soojeongmin@cnsa.hs.kr</footer>
+
+<script>
+  var SUPABASE_URL = 'https://fxmymgpieuivzzpleiyd.supabase.co';
+  var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4bXltZ3BpZXVpdnp6cGxlaXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1OTc0MDcsImV4cCI6MjA4ODE3MzQwN30.0hud517IIejJqt2g4YF2EoCZCnVUFsR-mse-6oqvMFg';
+  var categories = [];
+  var adminCourses = [];
+  var pendingCourses = [];
+
+  function sbHeaders() {
+    return { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+  }
+
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function() { t.classList.remove('show'); }, 2000);
+  }
+
+  function enterAdmin() {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('adminWrap').style.display = 'flex';
+    loadCategories();
+  }
+
+  function checkPw() {
+    var pw = document.getElementById('pwInput').value;
+    if (pw === '9544*') {
+      localStorage.setItem('admin_auth', String(Date.now()));
+      enterAdmin();
+    } else {
+      document.getElementById('pwErr').style.display = 'block';
+      document.getElementById('pwInput').value = '';
+      document.getElementById('pwInput').focus();
+    }
+  }
+
+  function switchTab(idx) {
+    document.querySelectorAll('.tab-btn').forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+    document.querySelectorAll('.tab-content').forEach(function(c, i) { c.classList.toggle('active', i === idx); });
+    if (idx === 1) refreshCatSelect();
+  }
+
+  function typeLabel(type) {
+    var map = { regular: '정규수업', '1in1gi': '1인1기', bangkwahu: '방과후학교' };
+    return map[type] || type;
+  }
+
+  async function loadCategories() {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/categories?select=*&order=sort_order', { headers: sbHeaders() });
+    categories = await res.json();
+    renderCategories();
+    refreshCatSelect();
+  }
+
+  function renderCategories() {
+    var tbody = document.getElementById('catBody');
+    var empty = document.getElementById('catEmpty');
+    tbody.innerHTML = '';
+    if (categories.length === 0) {
+      empty.style.display = '';
+      return;
+    }
+    empty.style.display = 'none';
+    categories.forEach(function(cat, idx) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + cat.sort_order + '</td>'
+        + '<td>' + cat.label + '</td>'
+        + '<td>' + typeLabel(cat.type) + '</td>'
+        + '<td>' + (cat.schedule_url || '-') + '</td>'
+        + '<td>'
+        + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',-1)" title="위로">&uarr;</button> '
+        + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',1)" title="아래로">&darr;</button>'
+        + '</td>'
+        + '<td><button class="btn btn-danger btn-sm" onclick="deleteCategory(' + cat.id + ',\'' + cat.label.replace(/'/g, "\\'") + '\')">삭제</button></td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function addCategory() {
+    var label = document.getElementById('catLabel').value.trim();
+    var type = document.getElementById('catType').value;
+    var url = document.getElementById('catUrl').value.trim();
+    if (!label) { showToast('이름을 입력하세요'); return; }
+    var maxOrder = categories.reduce(function(m, c) { return Math.max(m, c.sort_order || 0); }, 0);
+    var body = { label: label, type: type, schedule_url: url || null, sort_order: maxOrder + 1 };
+    await fetch(SUPABASE_URL + '/rest/v1/categories', { method: 'POST', headers: sbHeaders(), body: JSON.stringify(body) });
+    document.getElementById('catLabel').value = '';
+    document.getElementById('catUrl').value = '';
+    showToast('카테고리 추가됨');
+    await loadCategories();
+  }
+
+  async function deleteCategory(id, label) {
+    if (!confirm('"' + label + '" 카테고리를 삭제하시겠습니까?')) return;
+    var delCourses = confirm('해당 카테고리의 강좌도 함께 삭제하시겠습니까?');
+    if (delCourses) {
+      await fetch(SUPABASE_URL + '/rest/v1/courses?category=eq.' + encodeURIComponent(label), { method: 'DELETE', headers: sbHeaders() });
+    }
+    await fetch(SUPABASE_URL + '/rest/v1/categories?id=eq.' + id, { method: 'DELETE', headers: sbHeaders() });
+    showToast('카테고리 삭제됨');
+    await loadCategories();
+  }
+
+  async function moveCategory(id, dir) {
+    var idx = categories.findIndex(function(c) { return c.id === id; });
+    if (idx < 0) return;
+    var swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= categories.length) return;
+    var a = categories[idx];
+    var b = categories[swapIdx];
+    await Promise.all([
+      fetch(SUPABASE_URL + '/rest/v1/categories?id=eq.' + a.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ sort_order: b.sort_order }) }),
+      fetch(SUPABASE_URL + '/rest/v1/categories?id=eq.' + b.id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify({ sort_order: a.sort_order }) })
+    ]);
+    await loadCategories();
+  }
+
+  function refreshCatSelect() {
+    var sel = document.getElementById('courseCatSelect');
+    var prev = sel.value;
+    sel.innerHTML = '<option value="">-- 카테고리 선택 --</option>';
+    categories.forEach(function(cat) {
+      var opt = document.createElement('option');
+      opt.value = cat.label;
+      opt.textContent = cat.label;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+  }
+
+  async function loadAdminCourses() {
+    var cat = document.getElementById('courseCatSelect').value;
+    var tbody = document.getElementById('courseBody');
+    var empty = document.getElementById('courseEmpty');
+    var table = document.getElementById('courseTable');
+    tbody.innerHTML = '';
+    if (!cat) {
+      empty.style.display = '';
+      empty.textContent = '카테고리를 선택하세요';
+      table.style.display = 'none';
+      return;
+    }
+    var res = await fetch(SUPABASE_URL + '/rest/v1/courses?category=eq.' + encodeURIComponent(cat) + '&select=id,name,teacher,grade,location&order=id', { headers: sbHeaders() });
+    adminCourses = await res.json();
+    if (adminCourses.length === 0) {
+      empty.style.display = '';
+      empty.textContent = '강좌가 없습니다';
+      table.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    table.style.display = '';
+    adminCourses.forEach(function(c) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + c.id + '</td><td class="left">' + c.name + '</td><td>' + c.teacher + '</td><td>' + (c.grade || '') + '</td><td>' + (c.location || '') + '</td>'
+        + '<td><button class="btn btn-danger btn-sm" onclick="deleteCourse(' + c.id + ')">삭제</button></td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function deleteCourse(id) {
+    if (!confirm('이 강좌를 삭제하시겠습니까?')) return;
+    await fetch(SUPABASE_URL + '/rest/v1/courses?id=eq.' + id, { method: 'DELETE', headers: sbHeaders() });
+    showToast('강좌 삭제됨');
+    await loadAdminCourses();
+  }
+
+  async function deleteAllCourses() {
+    var cat = document.getElementById('courseCatSelect').value;
+    if (!cat) { showToast('카테고리를 선택하세요'); return; }
+    if (!confirm('"' + cat + '"의 모든 강좌를 삭제하시겠습니까?')) return;
+    await fetch(SUPABASE_URL + '/rest/v1/courses?category=eq.' + encodeURIComponent(cat), { method: 'DELETE', headers: sbHeaders() });
+    showToast('전체 강좌 삭제됨');
+    await loadAdminCourses();
+  }
+
+  async function handleAdminCourseFile(input) {
+    var file = input.files[0];
+    if (!file) return;
+    var cat = document.getElementById('courseCatSelect').value;
+    if (!cat) { showToast('카테고리를 먼저 선택하세요'); input.value = ''; return; }
+    var data = await readFile(file);
+    var json = parseSheet(data);
+    pendingCourses = json.map(function(row, i) {
+      return {
+        name: String(row['강좌명'] || '').trim(),
+        teacher: String(row['지도교사'] || '').trim(),
+        grade: String(row['학년'] || '').trim(),
+        location: String(row['장소'] || '').trim(),
+        days: ((String(row['시간'] || '').match(/[월화수목금]/g)) || []).filter(function(v, i, a) { return a.indexOf(v) === i; }).sort(),
+        times: (String(row['시간'] || '').match(/[월화수목금]\d+/g)) || []
+      };
+    }).filter(function(c) { return c.name && c.teacher; });
+
+    var tbody = document.getElementById('previewBody');
+    tbody.innerHTML = '';
+    pendingCourses.forEach(function(c, i) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td class="left">' + c.name + '</td><td>' + c.teacher + '</td><td>' + c.grade + '</td><td>' + c.location + '</td>';
+      tbody.appendChild(tr);
+    });
+    document.getElementById('coursePreview').style.display = '';
+    input.value = '';
+  }
+
+  function cancelPreview() {
+    document.getElementById('coursePreview').style.display = 'none';
+    pendingCourses = [];
+  }
+
+  async function uploadCoursesToSupabase() {
+    var cat = document.getElementById('courseCatSelect').value;
+    if (!cat || pendingCourses.length === 0) return;
+    await fetch(SUPABASE_URL + '/rest/v1/courses?category=eq.' + encodeURIComponent(cat), { method: 'DELETE', headers: sbHeaders() });
+    var rows = pendingCourses.map(function(c) {
+      return { category: cat, name: c.name, teacher: c.teacher, grade: c.grade, location: c.location, days: c.days, times: c.times };
+    });
+    var batchSize = 50;
+    for (var i = 0; i < rows.length; i += batchSize) {
+      var batch = rows.slice(i, i + batchSize);
+      await fetch(SUPABASE_URL + '/rest/v1/courses', { method: 'POST', headers: sbHeaders(), body: JSON.stringify(batch) });
+    }
+    showToast(pendingCourses.length + '개 강좌 업로드 완료');
+    cancelPreview();
+    await loadAdminCourses();
+  }
+
+  function readFile(file) {
+    return new Promise(function(resolve) {
+      var r = new FileReader();
+      r.onload = function(e) { resolve(new Uint8Array(e.target.result)); };
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  function parseSheet(data) {
+    var wb = XLSX.read(data, { type: 'array' });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var json = XLSX.utils.sheet_to_json(ws);
+    if (json.length > 0 && !json[0]['강좌명'] && !json[0]['지도교사']) {
+      json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      var h = json[0];
+      json = json.slice(1).map(function(row) {
+        var o = {};
+        h.forEach(function(k, i) { o[k] = row[i]; });
+        return o;
+      });
+    }
+    return json;
+  }
+
+  function copyCode(id) {
+    var el = document.getElementById(id);
+    var text = el.textContent.replace('복사', '').trim();
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('코드가 클립보드에 복사되었습니다');
+    });
+  }
+
+  var authTs = parseInt(localStorage.getItem('admin_auth') || '0');
+  if (Date.now() - authTs < 7 * 24 * 60 * 60 * 1000) {
+    enterAdmin();
+  } else {
+    document.getElementById('pwInput').focus();
+  }
+</script>
+
+</body>
+</html>

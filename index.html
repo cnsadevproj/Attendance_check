@@ -137,6 +137,7 @@
   <div style="display:flex;gap:6px">
     <button class="btn-bug" onclick="startTour()">&#10067; 사용법</button>
     <a class="btn-bug" href="mailto:soojeongmin@cnsa.hs.kr?subject=[출결 현황 관리] 버그 제보">&#9888; 버그 제보</a>
+    <a class="btn-bug" href="admin">&#9881; 관리</a>
   </div>
 </header>
 
@@ -145,9 +146,6 @@
     <div>
       <div class="sb-label">수업 구분</div>
       <select class="sb-select" id="category" onchange="onCategoryChange()">
-        <option value="26학년도 1학기 정규수업">26학년도 1학기 정규수업</option>
-        <option value="26학년도 1학기 1인1기">26학년도 1학기 1인1기</option>
-        <option value="26학년도 1학기 방과후학교">26학년도 1학기 방과후학교</option>
       </select>
     </div>
     <div>
@@ -246,7 +244,11 @@
 <script>
   const SUPABASE_URL = 'https://fxmymgpieuivzzpleiyd.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4bXltZ3BpZXVpdnp6cGxlaXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1OTc0MDcsImV4cCI6MjA4ODE3MzQwN30.0hud517IIejJqt2g4YF2EoCZCnVUFsR-mse-6oqvMFg';
-  const SCHEDULE_URL = 'https://script.google.com/macros/s/AKfycbw8Rx7NBve7LdL-VSp3oUvZJRFNcX3UjL7lTBpeY871IXMocHrXeeVPlfV6TVSHrnYy/exec';
+
+  function getScheduleUrl() {
+    var opt = document.getElementById('category').selectedOptions[0];
+    return opt ? opt.dataset.schedule || '' : '';
+  }
 
   let selectedDay = '\uC6D4';
   let courses = [];
@@ -277,11 +279,13 @@
   }
 
   function is1in1gi() {
-    return document.getElementById('category').value.includes('1\uC7781\uAE30');
+    var opt = document.getElementById('category').selectedOptions[0];
+    return opt && opt.dataset.type === '1in1gi';
   }
 
   function isBangkwahu() {
-    return document.getElementById('category').value.includes('\uBC29\uACFC\uD6C4');
+    var opt = document.getElementById('category').selectedOptions[0];
+    return opt && opt.dataset.type === 'bangkwahu';
   }
 
   async function fetchFromSupabase(category) {
@@ -295,20 +299,21 @@
   }
 
   async function fetchScheduleData(force) {
-    const cacheKey = 'schedule_cache';
+    var url = getScheduleUrl();
+    var cacheKey = 'schedule_cache_' + document.getElementById('category').value;
     if (!force) {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+      var cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
       if (cached && Date.now() - cached.ts < 5 * 60 * 1000) return cached.data;
     }
-    const res = await fetch(SCHEDULE_URL);
-    const data = await res.json();
+    var res = await fetch(url);
+    var data = await res.json();
     localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: data }));
     return data;
   }
 
   async function refreshSchedule() {
-    if (isBangkwahu()) return;
-    localStorage.removeItem('schedule_cache');
+    if (!getScheduleUrl()) return;
+    localStorage.removeItem('schedule_cache_' + document.getElementById('category').value);
     setScheduleBox('loading', '\uC0C8\uB85C\uACE0\uCE68 \uC911...', '');
     try {
       const data = await fetchScheduleData(true);
@@ -348,7 +353,7 @@
   }
 
   async function fetchSchedule() {
-    if (!SCHEDULE_URL) {
+    if (!getScheduleUrl()) {
       setScheduleBox('err', '\uC77C\uC815 \uC5C6\uC74C', '\uCD9C\uACB0 \uD30C\uC77C\uC5D0\uC11C \uB0A0\uC9DC \uAC10\uC9C0');
       scheduleLoaded = false;
       return;
@@ -442,7 +447,7 @@
       document.querySelectorAll('#bangSection .day-btn').forEach(function(b) { b.classList.add('active'); });
     }
     renderTableHead();
-    if (is1 && SCHEDULE_URL) {
+    if (is1 && getScheduleUrl()) {
       setScheduleBox('loading', '\uBD88\uB7EC\uC624\uB294 \uC911...', '');
       const schedulePromise = fetchScheduleData().catch(function() { return null; });
       await loadCourses();
@@ -467,8 +472,34 @@
         scheduleLoaded = false;
       }
     } else if (isBang) {
-      await loadCourses();
-      setScheduleBox('', '\uC11C\uBA85\uB85D \uBBF8\uC5F0\uACB0', '\uCD9C\uACB0 \uD30C\uC77C\uC5D0\uC11C \uB0A0\uC9DC \uAC10\uC9C0');
+      if (getScheduleUrl()) {
+        setScheduleBox('loading', '\uBD88\uB7EC\uC624\uB294 \uC911...', '');
+        var bangSchedulePromise = fetchScheduleData().catch(function() { return null; });
+        await loadCourses();
+        var bangData = await bangSchedulePromise;
+        if (bangData) {
+          scheduleByDate = {};
+          var bangCourseByUid = {};
+          courses.forEach(function(c) { bangCourseByUid[c.seq_no] = c; });
+          bangData.schedule.forEach(function(s) {
+            var course = bangCourseByUid[s.uid];
+            if (!course) return;
+            var key = normalize(course.name) + '||' + normalize(course.teacher);
+            if (!scheduleByDate[s.date]) scheduleByDate[s.date] = [];
+            scheduleByDate[s.date].push({ uid: s.uid, key: key, course: course, time: s.time, makeup: s.makeup });
+          });
+          scheduleDates = Object.keys(scheduleByDate).sort();
+          scheduleLoaded = true;
+          classDates = scheduleDates;
+          setScheduleBox('ok', '\uCD1D ' + bangData.schedule.length + '\uCC28\uC2DC \uB85C\uB4DC\uB428', '\uC11C\uBA85\uB85D\uC5D0\uC11C \uBD88\uB7EC\uC634');
+        } else {
+          setScheduleBox('err', '\uC77C\uC815 \uB85C\uB4DC \uC2E4\uD328', '\uB124\uD2B8\uC6CC\uD06C \uC624\uB958');
+          scheduleLoaded = false;
+        }
+      } else {
+        await loadCourses();
+        setScheduleBox('', '\uC11C\uBA85\uB85D \uBBF8\uC5F0\uACB0', '\uCD9C\uACB0 \uD30C\uC77C\uC5D0\uC11C \uB0A0\uC9DC \uAC10\uC9C0');
+      }
     } else {
       await loadCourses();
       if (is1) await fetchSchedule();
@@ -1185,7 +1216,28 @@
     tip.style.top = top + 'px';
   }
 
-  loadCourses();
+  async function fetchCategories() {
+    var sel = document.getElementById('category');
+    try {
+      var res = await fetch(SUPABASE_URL + '/rest/v1/categories?select=*&order=sort_order', {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+      });
+      var cats = await res.json();
+      sel.innerHTML = '';
+      cats.forEach(function(cat) {
+        var opt = document.createElement('option');
+        opt.value = cat.label;
+        opt.textContent = cat.label;
+        opt.dataset.type = cat.type;
+        opt.dataset.schedule = cat.schedule_url || '';
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      sel.innerHTML = '<option value="">카테고리 로드 실패</option>';
+    }
+  }
+
+  fetchCategories().then(function() { loadCourses(); });
   if (!localStorage.getItem('tour_done')) setTimeout(startTour, 800);
 </script>
 
