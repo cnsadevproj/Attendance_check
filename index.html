@@ -325,7 +325,7 @@
       input.value = '';
       return;
     }
-    attendFilename = file.name.replace(/\.[^.]+$/, '');
+    attendFilename = file.name.replace(/\.[^.]+$/, '').replace(/\s*\(\d+\)$/, '');
     const data = await readFile(file);
     const wb = XLSX.read(data, { type: 'array' });
     const ws = wb.Sheets[wb.SheetNames[0]];
