@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.png">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;display:flex;flex-direction:column}
@@ -366,6 +366,21 @@
     if (results.length === 0) { alert('\uB0B4\uBCF4\uB0BC \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.'); return; }
     const rows = results.map((c, i) => ({ 'No': i + 1, '\uD559\uB144': c.grade, '\uAC15\uC88C\uBA85': c.name, '\uC9C0\uB3C4\uAD50\uC0AC': c.teacher, '\uC7A5\uC18C': c.location }));
     const ws = XLSX.utils.json_to_sheet(rows);
+    const colWidths = [{ wch: 5 }, { wch: 6 }, { wch: 30 }, { wch: 10 }, { wch: 8 }];
+    ws['!cols'] = colWidths;
+    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', state: 'frozen' };
+    ws['!autofilter'] = { ref: ws['!ref'] };
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const center = { alignment: { horizontal: 'center', vertical: 'center' } };
+    const headerStyle = { alignment: { horizontal: 'center', vertical: 'center' }, font: { bold: true }, fill: { fgColor: { rgb: 'F2F2F2' } } };
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const hAddr = XLSX.utils.encode_cell({ r: 0, c: c });
+      if (ws[hAddr]) ws[hAddr].s = headerStyle;
+      for (let r = 1; r <= range.e.r; r++) {
+        const addr = XLSX.utils.encode_cell({ r: r, c: c });
+        if (ws[addr]) ws[addr].s = center;
+      }
+    }
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '\uBBF8\uC785\uB825');
     XLSX.writeFile(wb, attendFilename ? '\uBBF8\uC785\uB825_' + attendFilename + '.xlsx' : '\uBBF8\uC785\uB825_\uACB0\uACFC.xlsx');
