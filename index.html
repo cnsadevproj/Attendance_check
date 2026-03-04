@@ -89,13 +89,7 @@
     .c-hrs{width:84px;text-align:center}
     .sortable{cursor:pointer;user-select:none;white-space:nowrap}
     .sortable:hover{background:#eef2ff}
-    .toggle-wrap{display:flex;align-items:center;gap:10px;cursor:pointer}
-    .toggle-wrap input{display:none}
-    .toggle-track{width:36px;height:20px;background:#e2e8f0;border-radius:10px;position:relative;transition:background .2s}
-    .toggle-wrap input:checked+.toggle-track{background:#3b82f6}
-    .toggle-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
-    .toggle-wrap input:checked+.toggle-track .toggle-knob{transform:translateX(16px)}
-    .toggle-label{font-size:13px;color:#475569;font-weight:500}
+
 
     .empty{display:flex;align-items:center;justify-content:center;padding:60px 20px;color:#94a3b8;font-size:14px;flex:1}
 
@@ -213,13 +207,6 @@
           <button class="day-btn active" onclick="selectDayBang(this,'\uAE08')">금</button>
         </div>
       </div>
-      <div style="margin-top:12px">
-        <label class="toggle-wrap">
-          <input type="checkbox" id="groupByTeacher" onchange="toggleGroupByTeacher()">
-          <div class="toggle-track"><div class="toggle-knob"></div></div>
-          <span class="toggle-label">강사별 보기</span>
-        </label>
-      </div>
     </div>
   </aside>
 
@@ -277,7 +264,7 @@
   let scheduleLoaded = false;
   let attendDateRange = null;
   let selectedDaysBang = ['\uC6D4','\uD654','\uC218','\uBAA9','\uAE08'];
-  let groupByTeacher = false;
+
   let resultsBang = [];
   let sortState = { col: null, dir: 'asc' };
 
@@ -451,9 +438,7 @@
     document.getElementById('bangSection').style.display = isBang ? '' : 'none';
     if (isBang) {
       selectedDaysBang = ['\uC6D4','\uD654','\uC218','\uBAA9','\uAE08'];
-      groupByTeacher = false;
       document.querySelectorAll('#bangSection .day-btn').forEach(function(b) { b.classList.add('active'); });
-      document.getElementById('groupByTeacher').checked = false;
     }
     renderTableHead();
     if (is1 && SCHEDULE_URL) {
@@ -519,16 +504,6 @@
     if (classDates.length > 0 && Object.keys(attendedByDate).length > 0) runComparison();
   }
 
-  function toggleGroupByTeacher() {
-    groupByTeacher = document.getElementById('groupByTeacher').checked;
-    sortState = { col: null, dir: 'asc' };
-    if (classDates.length > 0 && Object.keys(attendedByDate).length > 0) {
-      runComparison();
-    } else {
-      renderTableHead();
-    }
-  }
-
   function toggleQueryMode(mode) {
     if (queryMode === mode) return;
     queryMode = mode;
@@ -547,11 +522,7 @@
   function renderTableHead() {
     var head = document.getElementById('resultHead');
     if (isBangkwahu()) {
-      if (groupByTeacher) {
-        head.innerHTML = '<th class="c-no">\uC21C\uBC88</th><th class="c-tc">\uC9C0\uB3C4\uAD50\uC0AC</th><th class="c-name">\uAC15\uC88C\uBA85</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>';
-      } else {
-        head.innerHTML = sortableTh('\uC21C\uBC88','seq','c-no') + sortableTh('\uACE0\uC720\uBC88\uD638','uid','c-uid') + '<th class="c-name">\uAC15\uC88C\uBA85</th>' + sortableTh('\uC9C0\uB3C4\uAD50\uC0AC','teacher','c-tc') + '<th class="c-loc">\uC7A5\uC18C</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>' + sortableTh('\uBBF8\uC785\uB825 \uC218','missCount','c-hrs');
-      }
+      head.innerHTML = sortableTh('\uC21C\uBC88','seq','c-no') + sortableTh('\uACE0\uC720\uBC88\uD638','uid','c-uid') + '<th class="c-name">\uAC15\uC88C\uBA85</th>' + sortableTh('\uC9C0\uB3C4\uAD50\uC0AC','teacher','c-tc') + '<th class="c-loc">\uC7A5\uC18C</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>' + sortableTh('\uBBF8\uC785\uB825 \uC218','missCount','c-hrs');
     } else if (is1in1gi()) {
       if (queryMode === 'missing') {
         head.innerHTML = sortableTh('\uC21C\uBC88','seq','c-no') + sortableTh('\uACE0\uC720\uBC88\uD638','uid','c-uid') + '<th class="c-name">\uAC15\uC88C\uBA85</th>' + sortableTh('\uC9C0\uB3C4\uAD50\uC0AC','teacher','c-tc') + '<th class="c-loc">\uC7A5\uC18C</th><th class="c-miss">\uBBF8\uC785\uB825 \uB0A0\uC9DC</th>';
@@ -667,35 +638,13 @@
     }
     table.style.display = '';
     empty.style.display = 'none';
-    if (groupByTeacher) {
-      var teacherMap = {};
-      resultsBang.forEach(function(item) {
-        var t = item.course.teacher;
-        if (!teacherMap[t]) teacherMap[t] = [];
-        teacherMap[t].push(item);
-      });
-      var teachers = Object.keys(teacherMap).sort(function(a, b) { return a.localeCompare(b, 'ko'); });
-      var seq = 1;
-      teachers.forEach(function(teacher) {
-        var items = teacherMap[teacher];
-        items.forEach(function(item, idx) {
-          var c = item.course;
-          var dates = formatBangDates(item.missingDates);
-          var tr = document.createElement('tr');
-          tr.innerHTML = '<td class="c-no">' + (idx === 0 ? seq : '') + '</td><td class="c-tc">' + (idx === 0 ? teacher : '') + '</td><td class="c-name">' + c.name + '</td><td class="c-miss">' + dates + '</td>';
-          tbody.appendChild(tr);
-        });
-        seq++;
-      });
-    } else {
-      resultsBang.forEach(function(item, i) {
-        var c = item.course;
-        var dates = formatBangDates(item.missingDates);
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-uid">' + c.seq_no + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td><td class="c-miss">' + dates + '</td><td class="c-hrs">' + item.missingCount + '</td>';
-        tbody.appendChild(tr);
-      });
-    }
+    resultsBang.forEach(function(item, i) {
+      var c = item.course;
+      var dates = formatBangDates(item.missingDates);
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td class="c-no">' + (i + 1) + '</td><td class="c-uid">' + c.seq_no + '</td><td class="c-name">' + c.name + '</td><td class="c-tc">' + c.teacher + '</td><td class="c-loc">' + c.location + '</td><td class="c-miss">' + dates + '</td><td class="c-hrs">' + item.missingCount + '</td>';
+      tbody.appendChild(tr);
+    });
   }
 
   function clearResults() {
@@ -1114,44 +1063,18 @@
 
   function exportExcelBang() {
     if (resultsBang.length === 0) { alert('\uB0B4\uBCF4\uB0BC \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.'); return; }
-    var rows, colWidths;
-
-    if (groupByTeacher) {
-      rows = [];
-      var teacherMap = {};
-      resultsBang.forEach(function(item) {
-        var t = item.course.teacher;
-        if (!teacherMap[t]) teacherMap[t] = [];
-        teacherMap[t].push(item);
-      });
-      var teachers = Object.keys(teacherMap).sort(function(a, b) { return a.localeCompare(b, 'ko'); });
-      var seq = 1;
-      teachers.forEach(function(teacher) {
-        teacherMap[teacher].forEach(function(item, idx) {
-          rows.push({
-            '\uC21C\uBC88': idx === 0 ? seq : '',
-            '\uC9C0\uB3C4\uAD50\uC0AC': idx === 0 ? teacher : '',
-            '\uAC15\uC88C\uBA85': item.course.name,
-            '\uBBF8\uC785\uB825 \uB0A0\uC9DC': formatBangDates(item.missingDates)
-          });
-        });
-        seq++;
-      });
-      colWidths = [{ wch: 5 }, { wch: 10 }, { wch: 30 }, { wch: 30 }];
-    } else {
-      rows = resultsBang.map(function(item, i) {
-        return {
-          '\uC21C\uBC88': i + 1,
-          '\uACE0\uC720\uBC88\uD638': item.course.seq_no,
-          '\uAC15\uC88C\uBA85': item.course.name,
-          '\uC9C0\uB3C4\uAD50\uC0AC': item.course.teacher,
-          '\uC7A5\uC18C': item.course.location,
-          '\uBBF8\uC785\uB825 \uB0A0\uC9DC': formatBangDates(item.missingDates),
-          '\uBBF8\uC785\uB825 \uC218': item.missingCount
-        };
-      });
-      colWidths = [{ wch: 5 }, { wch: 8 }, { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 30 }, { wch: 8 }];
-    }
+    var rows = resultsBang.map(function(item, i) {
+      return {
+        '\uC21C\uBC88': i + 1,
+        '\uACE0\uC720\uBC88\uD638': item.course.seq_no,
+        '\uAC15\uC88C\uBA85': item.course.name,
+        '\uC9C0\uB3C4\uAD50\uC0AC': item.course.teacher,
+        '\uC7A5\uC18C': item.course.location,
+        '\uBBF8\uC785\uB825 \uB0A0\uC9DC': formatBangDates(item.missingDates),
+        '\uBBF8\uC785\uB825 \uC218': item.missingCount
+      };
+    });
+    var colWidths = [{ wch: 5 }, { wch: 8 }, { wch: 30 }, { wch: 10 }, { wch: 8 }, { wch: 30 }, { wch: 8 }];
 
     var ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = colWidths;
