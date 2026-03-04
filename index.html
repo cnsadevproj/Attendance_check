@@ -186,15 +186,7 @@
   let courseSource = '';
 
   function normalize(s) {
-    return s.replace(/[\s\u00a0\u3000]+/g, ' ').trim()
-      .replace(/\u2160/g, 'I').replace(/\u2161/g, 'II').replace(/\u2162/g, 'III')
-      .replace(/\u2163/g, 'IV').replace(/\u2164/g, 'V').replace(/\u2165/g, 'VI')
-      .replace(/\u2166/g, 'VII').replace(/\u2167/g, 'VIII').replace(/\u2168/g, 'IX')
-      .replace(/\u2169/g, 'X').replace(/\u216A/g, 'XI').replace(/\u216B/g, 'XII')
-      .replace(/\u2170/g, 'i').replace(/\u2171/g, 'ii').replace(/\u2172/g, 'iii')
-      .replace(/\u2173/g, 'iv').replace(/\u2174/g, 'v').replace(/\u2175/g, 'vi')
-      .replace(/\u2176/g, 'vii').replace(/\u2177/g, 'viii').replace(/\u2178/g, 'ix')
-      .replace(/\u2179/g, 'x');
+    return s.normalize('NFKC').replace(/[\s\u00a0\u3000]+/g, ' ').trim();
   }
 
   function storageKey() {
