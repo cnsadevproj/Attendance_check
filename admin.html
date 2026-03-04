@@ -153,7 +153,7 @@
     <div class="section">
       <h3>카테고리 목록</h3>
       <table class="tbl" id="catTable">
-        <thead><tr><th style="width:100px">순서</th><th>이름</th><th style="width:90px">유형</th><th>서명록 URL</th><th style="width:120px;white-space:nowrap">순서 변경</th><th style="width:80px">삭제</th></tr></thead>
+        <thead><tr><th style="width:100px">순서</th><th style="white-space:nowrap;min-width:200px">이름</th><th style="width:90px">유형</th><th style="width:180px">서명록 URL</th><th style="width:120px;white-space:nowrap">순서 변경</th><th style="width:80px">편집</th><th style="width:80px">삭제</th></tr></thead>
         <tbody id="catBody"></tbody>
       </table>
       <div class="empty-msg" id="catEmpty">카테고리가 없습니다</div>
@@ -383,6 +383,8 @@ function toDateStr_(val) {
     refreshCatSelect();
   }
 
+  var editingCatId = null;
+
   function renderCategories() {
     var tbody = document.getElementById('catBody');
     var empty = document.getElementById('catEmpty');
@@ -392,19 +394,55 @@ function toDateStr_(val) {
       return;
     }
     empty.style.display = 'none';
-    categories.forEach(function(cat, idx) {
+    categories.forEach(function(cat) {
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td>' + cat.sort_order + '</td>'
-        + '<td>' + cat.label + '</td>'
-        + '<td>' + typeLabel(cat.type) + '</td>'
-        + '<td>' + (cat.schedule_url || '-') + '</td>'
-        + '<td>'
-        + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',-1)" title="위로">&uarr;</button> '
-        + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',1)" title="아래로">&darr;</button>'
-        + '</td>'
-        + '<td><button class="btn btn-danger btn-sm" onclick="deleteCategory(' + cat.id + ',\'' + cat.label.replace(/'/g, "\\'") + '\')">삭제</button></td>';
+      var isEditing = editingCatId === cat.id;
+      if (isEditing) {
+        tr.innerHTML = '<td>' + cat.sort_order + '</td>'
+          + '<td><input id="editLabel_' + cat.id + '" value="' + cat.label.replace(/"/g, '&quot;') + '" style="width:100%;padding:4px 8px;border:1px solid #3b82f6;border-radius:6px;font-size:13px;font-family:inherit"></td>'
+          + '<td>' + typeLabel(cat.type) + '</td>'
+          + '<td><input id="editUrl_' + cat.id + '" value="' + (cat.schedule_url || '').replace(/"/g, '&quot;') + '" placeholder="없으면 비워두세요" style="width:100%;padding:4px 8px;border:1px solid #3b82f6;border-radius:6px;font-size:13px;font-family:inherit"></td>'
+          + '<td>'
+          + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',-1)" title="위로">&uarr;</button> '
+          + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',1)" title="아래로">&darr;</button>'
+          + '</td>'
+          + '<td><button class="btn btn-primary btn-sm" onclick="saveCategory(' + cat.id + ')">저장</button></td>'
+          + '<td><button class="btn btn-outline btn-sm" onclick="cancelEdit()">취소</button></td>';
+      } else {
+        tr.innerHTML = '<td>' + cat.sort_order + '</td>'
+          + '<td>' + cat.label + '</td>'
+          + '<td>' + typeLabel(cat.type) + '</td>'
+          + '<td>' + (cat.schedule_url || '-') + '</td>'
+          + '<td>'
+          + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',-1)" title="위로">&uarr;</button> '
+          + '<button class="btn-icon" onclick="moveCategory(' + cat.id + ',1)" title="아래로">&darr;</button>'
+          + '</td>'
+          + '<td><button class="btn btn-outline btn-sm" onclick="editCategory(' + cat.id + ')">편집</button></td>'
+          + '<td><button class="btn btn-danger btn-sm" onclick="deleteCategory(' + cat.id + ',\'' + cat.label.replace(/'/g, "\\'") + '\')">삭제</button></td>';
+      }
       tbody.appendChild(tr);
     });
+  }
+
+  function editCategory(id) {
+    editingCatId = id;
+    renderCategories();
+  }
+
+  function cancelEdit() {
+    editingCatId = null;
+    renderCategories();
+  }
+
+  async function saveCategory(id) {
+    var newLabel = document.getElementById('editLabel_' + id).value.trim();
+    var newUrl = document.getElementById('editUrl_' + id).value.trim();
+    if (!newLabel) { showToast('이름을 입력하세요'); return; }
+    var body = { label: newLabel, schedule_url: newUrl || null };
+    await fetch(SUPABASE_URL + '/rest/v1/categories?id=eq.' + id, { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body) });
+    editingCatId = null;
+    showToast('카테고리 수정됨');
+    await loadCategories();
   }
 
   async function addCategory() {
