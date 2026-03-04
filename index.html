@@ -1105,14 +1105,14 @@
   }
 
   const TOUR_STEPS = [
-    { sel: '#category', title: '1. 수업 구분 선택', text: '정규수업, 1인1기, 방과후학교 중 조회할 수업 구분을 선택하세요.', lift: 'sidebar' },
-    { sel: '#courseBox', title: '2. 강좌목록 확인', text: '서버에서 강좌목록을 자동으로 불러옵니다. 직접 업로드 시 리로스쿨 > 강좌목록 조회 > 상단 목록저장 버튼으로 받은 엑셀 파일을 사용하세요.', lift: 'sidebar' },
-    { sel: '#scheduleBox', title: '3. 수업 일정 (1인1기)', text: '1인1기 선택 시 서명록 스프레드시트에서 수업 일정을 자동으로 불러옵니다. 보강/휴강 등 변경사항이 실시간 반영돼요.', lift: 'sidebar' },
-    { sel: '#daySection', title: '4. 요일 선택', text: '정규수업에서 출결기록 날짜에 해당하는 요일을 선택하세요.', lift: 'sidebar' },
-    { sel: '#modeSection', title: '4. 조회 모드 (1인1기)', text: '미입력 조회는 출결 미입력 강좌를, 시수 조회는 강좌별 입력된 시수를 보여줍니다. 월/수/금 요일 필터로 원하는 요일만 조회할 수 있어요.', lift: 'sidebar' },
-    { sel: '#bangSection', title: '4. 요일 필터 (방과후)', text: '방과후학교 선택 시 요일별 필터와 강사별 보기를 설정할 수 있어요. 미입력 날짜에 교시 정보가 함께 표시됩니다.', lift: 'sidebar' },
-    { sel: '.btn-primary', title: '5. 출결기록 불러오기', text: '', lift: 'main', dynamic: true },
-    { sel: '.btn-outline', title: '6. 내보내기', text: '조회된 결과를 엑셀 파일로 다운로드할 수 있어요.', lift: 'main' }
+    { sel: '#category', title: '1. \uC218\uC5C5 \uAD6C\uBD84 \uC120\uD0DD', text: '\uC815\uADDC\uC218\uC5C5, 1\uC7781\uAE30, \uBC29\uACFC\uD6C4\uD559\uAD50 \uC911 \uC870\uD68C\uD560 \uC218\uC5C5 \uAD6C\uBD84\uC744 \uC120\uD0DD\uD558\uC138\uC694.', lift: 'sidebar' },
+    { sel: '#courseBox', title: '2. \uAC15\uC88C\uBAA9\uB85D \uD655\uC778', text: '\uC11C\uBC84\uC5D0\uC11C \uAC15\uC88C\uBAA9\uB85D\uC744 \uC790\uB3D9\uC73C\uB85C \uBD88\uB7EC\uC635\uB2C8\uB2E4. \uC9C1\uC811 \uC5C5\uB85C\uB4DC \uC2DC \uB9AC\uB85C\uC2A4\uCFE8 > \uAC15\uC88C\uBAA9\uB85D \uC870\uD68C > \uC0C1\uB2E8 \uBAA9\uB85D\uC800\uC7A5 \uBC84\uD2BC\uC73C\uB85C \uBC1B\uC740 \uC5D1\uC140 \uD30C\uC77C\uC744 \uC0AC\uC6A9\uD558\uC138\uC694.', lift: 'sidebar' },
+    { sel: '#scheduleBox', title: '3. \uC218\uC5C5 \uC77C\uC815', text: '', lift: 'sidebar', dynamic: 'schedule' },
+    { sel: '#daySection', title: '3. \uC694\uC77C \uC120\uD0DD', text: '\uCD9C\uACB0\uAE30\uB85D \uB0A0\uC9DC\uC5D0 \uD574\uB2F9\uD558\uB294 \uC694\uC77C\uC744 \uC120\uD0DD\uD558\uC138\uC694.', lift: 'sidebar' },
+    { sel: '#modeSection', title: '3. \uC870\uD68C \uBAA8\uB4DC (1\uC7781\uAE30)', text: '\uBBF8\uC785\uB825 \uC870\uD68C\uB294 \uCD9C\uACB0 \uBBF8\uC785\uB825 \uAC15\uC88C\uB97C, \uC2DC\uC218 \uC870\uD68C\uB294 \uAC15\uC88C\uBCC4 \uC785\uB825\uB41C \uC2DC\uC218\uB97C \uBCF4\uC5EC\uC90D\uB2C8\uB2E4. \uC6D4/\uC218/\uAE08 \uC694\uC77C \uD544\uD130\uB85C \uC6D0\uD558\uB294 \uC694\uC77C\uB9CC \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC694.', lift: 'sidebar' },
+    { sel: '#bangSection', title: '3. \uC694\uC77C \uD544\uD130 (\uBC29\uACFC\uD6C4)', text: '\uC6D4~\uAE08 \uC694\uC77C\uBCC4 \uD544\uD130\uB85C \uC6D0\uD558\uB294 \uC694\uC77C\uB9CC \uC870\uD68C\uD560 \uC218 \uC788\uC5B4\uC694. \uBBF8\uC785\uB825 \uB0A0\uC9DC\uC5D0 \uAD50\uC2DC \uC815\uBCF4(\uC608: 3/5 \uBAA98)\uAC00 \uD568\uAED8 \uD45C\uC2DC\uB429\uB2C8\uB2E4.', lift: 'sidebar' },
+    { sel: '.btn-primary', title: '4. \uCD9C\uACB0\uAE30\uB85D \uBD88\uB7EC\uC624\uAE30', text: '', lift: 'main', dynamic: 'attend' },
+    { sel: '.btn-outline', title: '5. \uB0B4\uBCF4\uB0B4\uAE30', text: '\uC870\uD68C\uB41C \uACB0\uACFC\uB97C \uC5D1\uC140 \uD30C\uC77C\uB85C \uB2E4\uC6B4\uB85C\uB4DC\uD560 \uC218 \uC788\uC5B4\uC694. \uD14C\uC774\uBE14 \uD5E4\uB354\uB97C \uD074\uB9AD\uD558\uBA74 \uC815\uB82C\uD560 \uC218 \uC788\uACE0, \uC815\uB82C \uC0C1\uD0DC\uAC00 \uADF8\uB300\uB85C \uB0B4\uBCF4\uB0B4\uAE30\uC5D0 \uBC18\uC601\uB429\uB2C8\uB2E4.', lift: 'main' }
   ];
   var tourStep = 0;
   var prevTarget = null;
@@ -1152,8 +1152,14 @@
     var rect = el.getBoundingClientRect();
     var tip = document.getElementById('tourTip');
     var stepText = step.text;
-    if (step.dynamic) {
-      stepText = is1in1gi()
+    if (step.dynamic === 'schedule') {
+      stepText = isBangkwahu()
+        ? '\uBC29\uACFC\uD6C4\uD559\uAD50\uB294 \uBCC4\uB3C4 \uC11C\uBA85\uB85D\uC774 \uC5F0\uACB0\uB418\uBA74 \uC218\uC5C5 \uC77C\uC815\uC744 \uC790\uB3D9\uC73C\uB85C \uBD88\uB7EC\uC635\uB2C8\uB2E4. \uC5F0\uACB0 \uC804\uC5D0\uB294 \uCD9C\uACB0 \uD30C\uC77C\uC5D0\uC11C \uB0A0\uC9DC\uB97C \uC790\uB3D9 \uAC10\uC9C0\uD574\uC694.'
+        : '1\uC7781\uAE30 \uC11C\uBA85\uB85D \uC2A4\uD504\uB808\uB4DC\uC2DC\uD2B8\uC5D0\uC11C \uC218\uC5C5 \uC77C\uC815\uC744 \uC790\uB3D9\uC73C\uB85C \uBD88\uB7EC\uC635\uB2C8\uB2E4. \uBCF4\uAC15/\uD734\uAC15 \uB4F1 \uBCC0\uACBD\uC0AC\uD56D\uC774 \uC2E4\uC2DC\uAC04 \uBC18\uC601\uB3FC\uC694.';
+    } else if (step.dynamic === 'attend') {
+      stepText = isBangkwahu()
+        ? '\uB9AC\uB85C\uC2A4\uCFE8 > \uCD9C\uACB0\uB0B4\uC5ED \uC870\uD68C > \uC804\uCCB4 \uC120\uD0DD > \uD574\uB2F9 \uBC29\uACFC\uD6C4 \uAC15\uC88C \uBB36\uC74C \uC120\uD0DD > \uB0A0\uC9DC \uC124\uC815 \uD6C4 \uC5D1\uC140\uC800\uC7A5. \uD30C\uC77C\uBA85\uC5D0 \uB0A0\uC9DC \uBC94\uC704(\uC608: 2026-03-04~2026-05-10)\uAC00 \uC788\uC73C\uBA74 \uD574\uB2F9 \uAE30\uAC04\uB9CC \uC790\uB3D9 \uC870\uD68C\uB429\uB2C8\uB2E4.'
+        : is1in1gi()
         ? '\uB9AC\uB85C\uC2A4\uCFE8 > \uCD9C\uACB0\uB0B4\uC5ED \uC870\uD68C > \uC804\uCCB4 \uC120\uD0DD > \uD574\uB2F9 1\uC7781\uAE30 \uAC15\uC88C \uBB36\uC74C \uC120\uD0DD > \uB0A0\uC9DC \uC124\uC815 \uD6C4 \uC5D1\uC140\uC800\uC7A5. \uD30C\uC77C\uBA85\uC5D0 \uB0A0\uC9DC \uBC94\uC704(\uC608: 2026-03-04~2026-05-10)\uAC00 \uC788\uC73C\uBA74 \uD574\uB2F9 \uAE30\uAC04\uB9CC \uC790\uB3D9 \uC870\uD68C\uB429\uB2C8\uB2E4.'
         : '\uB9AC\uB85C\uC2A4\uCFE8 > \uCD9C\uACB0\uB0B4\uC5ED \uC870\uD68C > \uC804\uCCB4 \uC120\uD0DD > \uD574\uB2F9 \uC815\uADDC\uC218\uC5C5 \uAC15\uC88C \uBB36\uC74C \uC120\uD0DD > \uB0A0\uC9DC \uC124\uC815 \uD6C4 \uC5D1\uC140\uC800\uC7A5. \uC5C5\uB85C\uB4DC\uD558\uBA74 \uC120\uD0DD\uD55C \uC694\uC77C\uC758 \uBBF8\uC785\uB825 \uAC15\uC88C\uB97C \uC790\uB3D9\uC73C\uB85C \uCC3E\uC544\uC90D\uB2C8\uB2E4.';
     }
