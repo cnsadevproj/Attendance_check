@@ -433,7 +433,7 @@
     const is1 = is1in1gi();
     const isBang = isBangkwahu();
     document.getElementById('daySection').style.display = (is1 || isBang) ? 'none' : '';
-    document.getElementById('scheduleSection').style.display = is1 ? '' : 'none';
+    document.getElementById('scheduleSection').style.display = (is1 || isBang) ? '' : 'none';
     document.getElementById('modeSection').style.display = is1 ? '' : 'none';
     document.getElementById('bangSection').style.display = isBang ? '' : 'none';
     if (isBang) {
@@ -441,7 +441,7 @@
       document.querySelectorAll('#bangSection .day-btn').forEach(function(b) { b.classList.add('active'); });
     }
     renderTableHead();
-    if (is1 && SCHEDULE_URL) {
+    if ((is1 || isBang) && SCHEDULE_URL) {
       setScheduleBox('loading', '\uBD88\uB7EC\uC624\uB294 \uC911...', '');
       const schedulePromise = fetchScheduleData().catch(function() { return null; });
       await loadCourses();
@@ -467,7 +467,7 @@
       }
     } else {
       await loadCourses();
-      if (is1) await fetchSchedule();
+      if (is1 || isBang) await fetchSchedule();
     }
   }
 
@@ -954,20 +954,36 @@
     var summary = document.getElementById('resultSummary');
     var courseMap = {};
 
-    filteredDates.forEach(function(dateStr) {
-      var day = getDayOfWeek(dateStr);
-      var dayCourses = courses.filter(function(c) { return c.days.includes(day); });
-      var attendedSet = attendedByDate[dateStr] || new Set();
-      dayCourses.forEach(function(c) {
-        var key = normalize(c.name) + '||' + normalize(c.teacher);
-        if (!attendedSet.has(key)) {
-          if (!courseMap[key]) courseMap[key] = { course: c, missingDates: [] };
-          var timesForDay = (c.times || []).filter(function(t) { return t.charAt(0) === day; });
-          var period = timesForDay.map(function(t) { return t.slice(1); }).join(',');
-          courseMap[key].missingDates.push({ date: dateStr, day: day, period: period });
-        }
+    if (scheduleLoaded) {
+      filteredDates.forEach(function(dateStr) {
+        var entries = scheduleByDate[dateStr] || [];
+        var attendedSet = attendedByDate[dateStr] || new Set();
+        entries.forEach(function(e) {
+          if (!attendedSet.has(e.key)) {
+            if (!courseMap[e.key]) courseMap[e.key] = { course: e.course, missingDates: [] };
+            var day = getDayOfWeek(dateStr);
+            var timesForDay = (e.course.times || []).filter(function(t) { return t.charAt(0) === day; });
+            var period = timesForDay.map(function(t) { return t.slice(1); }).join(',');
+            courseMap[e.key].missingDates.push({ date: dateStr, day: day, period: period });
+          }
+        });
       });
-    });
+    } else {
+      filteredDates.forEach(function(dateStr) {
+        var day = getDayOfWeek(dateStr);
+        var dayCourses = courses.filter(function(c) { return c.days.includes(day); });
+        var attendedSet = attendedByDate[dateStr] || new Set();
+        dayCourses.forEach(function(c) {
+          var key = normalize(c.name) + '||' + normalize(c.teacher);
+          if (!attendedSet.has(key)) {
+            if (!courseMap[key]) courseMap[key] = { course: c, missingDates: [] };
+            var timesForDay = (c.times || []).filter(function(t) { return t.charAt(0) === day; });
+            var period = timesForDay.map(function(t) { return t.slice(1); }).join(',');
+            courseMap[key].missingDates.push({ date: dateStr, day: day, period: period });
+          }
+        });
+      });
+    }
 
     resultsBang = Object.values(courseMap);
     resultsBang.forEach(function(item) { item.missingCount = item.missingDates.length; });
