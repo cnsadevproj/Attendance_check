@@ -271,7 +271,7 @@
   let sortState = { col: null, dir: 'asc' };
 
   function normalize(s) {
-    return s.normalize('NFKC').replace(/[\s\u00a0\u3000]+/g, ' ').trim();
+    return s.replace(/[\s\u00a0\u3000]+/g, ' ').trim();
   }
 
   function storageKey() {
